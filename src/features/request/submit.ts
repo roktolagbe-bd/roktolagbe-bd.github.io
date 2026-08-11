@@ -1,4 +1,5 @@
 import { getSupabase } from '@/lib/supabase'
+import { callFunction } from '@/lib/functions'
 import type { BloodGroup } from '@/lib/blood'
 import type { Coords } from '@/lib/geolocation'
 
@@ -119,8 +120,43 @@ export async function submitRequest(form: RequestForm): Promise<RequestResult> {
     return { ok: false, reason: 'unknown', detail: err instanceof Error ? err.message : undefined }
   }
 
-  // The request is saved from here on. Matching failing is a degraded success,
-  // not a failure, so the caller still gets a request id.
+  // The request is saved from here on. Everything below is a degraded success
+  // at worst, so the caller always gets a request id back.
+  //
+  // Preferred path: the Edge Function. It is the only place that can see the
+  // caller's IP address, so it is the only place the per-hour cap can actually
+  // be enforced. It also runs the matcher and queues the emails.
+  const viaFunction = await callFunction<{
+    ok: boolean
+    matched: number
+    queued: number
+    radius_km: number | null
+    whole_district: boolean
+    auto_email_enabled: boolean
+  }>('send-request-emails', { request_id: requestId })
+
+  if (viaFunction.ok && viaFunction.data.ok) {
+    return {
+      ok: true,
+      requestId,
+      match: {
+        matched_count: viaFunction.data.matched,
+        radius_km: viaFunction.data.radius_km,
+        widened: viaFunction.data.whole_district,
+        emails_queued: viaFunction.data.auto_email_enabled,
+      },
+    }
+  }
+
+  if (viaFunction.ok === false && viaFunction.status === 429) {
+    // The request row exists but the caller is over the cap. Say so honestly
+    // rather than reporting a match that never ran.
+    return { ok: false, reason: 'rate_limited' }
+  }
+
+  // Fallback for a deployment where the functions are not published yet.
+  // Matching still runs, so admins can send by hand; only the IP cap and the
+  // emails are missing.
   try {
     const supabase = await pending
     const { data, error } = await supabase

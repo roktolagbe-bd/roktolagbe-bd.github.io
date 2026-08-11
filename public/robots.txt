@@ -4,6 +4,7 @@ Allow: /
 # Donor response links are single-use and tied to one request. They must never
 # be crawled, cached or indexed.
 Disallow: /respond/
+Disallow: /opt-out/
 Disallow: /admin
 
 Sitemap: https://roktolagbe-bd.github.io/sitemap.xml

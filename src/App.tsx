@@ -12,6 +12,7 @@ import Donors from '@/pages/Donors'
 import Learn from '@/pages/Learn'
 import Privacy from '@/pages/Privacy'
 import Respond from '@/pages/Respond'
+import OptOut from '@/pages/OptOut'
 import NotFound from '@/pages/NotFound'
 
 /* The admin panel is a separate download. Almost nobody who visits this site is
@@ -82,6 +83,8 @@ export default function App() {
             <Route path="/privacy" element={<Privacy />} />
             {/* Reached only from a tokenised link in an email. No login. */}
             <Route path="/respond/:token" element={<Respond />} />
+            {/* One tap from any email, and the emails stop. */}
+            <Route path="/opt-out/:token" element={<OptOut />} />
             <Route path="/admin/*" element={<AdminApp />} />
             <Route path="*" element={<NotFound />} />
           </Routes>

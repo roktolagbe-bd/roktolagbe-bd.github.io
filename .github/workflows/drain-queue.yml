@@ -1,0 +1,56 @@
+name: Drain email queue
+
+# DISABLED BY DEFAULT.
+#
+# This is the alternative to pg_cron (supabase/migrations/0010_cron.sql).
+# Something has to empty email_queue on a schedule, but only ONE of the two
+# should do it, or every email gets two attempts at once.
+#
+# To use this instead of pg_cron:
+#   1. Uncomment the `schedule` block below.
+#   2. Add two repository secrets under Settings -> Secrets and variables ->
+#      Actions:
+#        SUPABASE_PROJECT_REF   the subdomain of your Supabase URL
+#        SUPABASE_SERVICE_ROLE_KEY
+#
+# The service_role key bypasses every privacy rule in the database. It belongs
+# only in secrets, never in a file and never in a VITE_ variable.
+
+on:
+  # schedule:
+  #   - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: drain-email-queue
+  cancel-in-progress: false
+
+jobs:
+  drain:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call drain-email-queue
+        env:
+          REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+          KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          if [ -z "$REF" ] || [ -z "$KEY" ]; then
+            echo "SUPABASE_PROJECT_REF and SUPABASE_SERVICE_ROLE_KEY are not set."
+            echo "See the comment at the top of this file."
+            exit 1
+          fi
+
+          response=$(curl -sS -w '\n%{http_code}' -X POST \
+            "https://${REF}.supabase.co/functions/v1/drain-email-queue" \
+            -H "Authorization: Bearer ${KEY}" \
+            -H "Content-Type: application/json" \
+            -d '{}')
+
+          body=$(echo "$response" | head -n -1)
+          status=$(echo "$response" | tail -n 1)
+
+          # The body reports how many were sent and how many failed. It never
+          # contains an email address.
+          echo "HTTP $status"
+          echo "$body"
+          [ "$status" = "200" ] || exit 1

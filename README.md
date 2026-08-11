@@ -95,6 +95,7 @@ supabase/migrations/0008_functions.sql
 supabase/migrations/0009_rls_policies.sql
 supabase/migrations/0011_locate_area.sql
 supabase/migrations/0012_matcher.sql
+supabase/migrations/0013_email_pipeline.sql
 
 supabase/seed/001_districts.sql        64 districts
 supabase/seed/002_upazilas.sql         494 upazilas
@@ -147,7 +148,99 @@ does.
 
 ---
 
-## 3. Put it live on GitHub Pages
+## 3. Turn on email
+
+Everything above works without this. Do this when you are ready for donors to
+actually be told about requests.
+
+### 3a. Make a Gmail App Password
+
+An App Password is a 16 character key that lets one program send mail as your
+account, without giving it your real password. You can revoke it any time.
+
+1. Sign in to **roktolagbe.bd@gmail.com**.
+2. Turn on 2-Step Verification: https://myaccount.google.com/signinoptions/two-step-verification
+   App Passwords do not exist until you do.
+3. Go to https://myaccount.google.com/apppasswords
+4. Type a name, for example `Roktolagbe`, and press **Create**.
+5. Copy the 16 characters. Google shows it once. Spaces do not matter.
+
+### 3b. Give the secrets to Supabase
+
+In the Supabase dashboard: **Project Settings** → **Edge Functions** → **Secrets**.
+
+| Name | Value |
+| --- | --- |
+| `GMAIL_USER` | `roktolagbe.bd@gmail.com` |
+| `GMAIL_APP_PASSWORD` | the 16 characters from step 3a |
+
+`SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are provided automatically.
+
+**Never put these in this repository, in a `VITE_` variable, or in a GitHub
+secret used by the site build.** The App Password can send mail as you. The
+service_role key bypasses every privacy rule in the database.
+
+### 3c. Deploy the functions
+
+Install the Supabase CLI (https://supabase.com/docs/guides/cli), then:
+
+```bash
+supabase login
+supabase link --project-ref YOUR_PROJECT_REF
+supabase functions deploy send-request-emails
+supabase functions deploy drain-email-queue
+supabase functions deploy respond
+```
+
+### 3d. Drain the queue on a schedule
+
+Nothing sends by itself. Something has to empty `email_queue`. Pick one:
+
+- **pg_cron**: run `supabase/migrations/0010_cron.sql`, after replacing the two
+  placeholders in it. Everything stays inside Supabase.
+- **GitHub Actions**: enable `.github/workflows/drain-queue.yml`.
+
+Do not do both, or every email gets two attempts at once.
+
+### 3e. Turn the master switch on
+
+Emails stay off until you say so. In the SQL editor:
+
+```sql
+update public.admin_settings set value = 'true'::jsonb where key = 'auto_email_enabled';
+```
+
+Until you do, matching still runs on every request and recipients are recorded
+with status `skipped`, so you can see exactly who would have been contacted.
+Nothing is lost by leaving it off while you test.
+
+### 3f. Set the IP salt
+
+So that hashed IP addresses cannot be reversed:
+
+```sql
+alter database postgres set app.ip_salt = 'paste a long random string here';
+```
+
+### How to test it safely
+
+1. Leave `auto_email_enabled` **false**.
+2. Register yourself as a donor with your own email, in a district you can pick.
+3. Send a request for your own blood group in that district.
+4. Check `request_recipients`. You should be there with status `skipped`.
+5. Now set the switch to true and send another request. Check `email_queue`,
+   then run the drain function once by hand:
+
+```bash
+curl -X POST "https://YOUR_PROJECT_REF.supabase.co/functions/v1/drain-email-queue" \
+  -H "Authorization: Bearer YOUR_SERVICE_ROLE_KEY"
+```
+
+You should get the email, and the Accept button should work without logging in.
+
+---
+
+## 4. Put it live on GitHub Pages
 
 This repository is an **organisation root site**. It publishes to
 `https://roktolagbe-bd.github.io` with no sub-path, which is why
@@ -184,7 +277,7 @@ path, so it only affects genuine typos.
 
 ---
 
-## 4. How the project is laid out
+## 5. How the project is laid out
 
 ```
 src/
@@ -209,7 +302,7 @@ Two files are worth reading before you change anything visual:
 
 ---
 
-## 5. Performance budget
+## 6. Performance budget
 
 Most people who use this site are on a cheap Android phone on a slow network,
 often inside a hospital. The rule is that the first download stays under
@@ -235,7 +328,7 @@ budget, that shows up in the pull request.
 
 ---
 
-## 6. What is built so far
+## 7. What is built so far
 
 This project is being built in phases.
 
@@ -244,12 +337,11 @@ This project is being built in phases.
 - [x] **Phase 2** Database schema, Row Level Security, districts and upazilas
 - [x] **Phase 3** Donor registration, Locate me, map pin
 - [x] **Phase 4** Search and the request flow with donor matching
-- [ ] **Phase 5** Edge Functions and the email pipeline
+- [x] **Phase 5** Edge Functions and the email pipeline
 - [ ] **Phase 6** Admin panel
 - [ ] **Phase 7** Design pass, motion, Bangla copy edit, performance check
 
-Instructions for running database migrations and setting up Gmail sending will
-be added to this file in Phases 2 and 5, once those parts exist.
+
 
 ---
 

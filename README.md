@@ -78,6 +78,65 @@ npx tsc -b       # type check only
 
 7. Stop the dev server and start it again. The "not connected" banner goes away.
 
+### 2b. Create the tables
+
+In the Supabase dashboard, open **SQL Editor**, then paste and run these files
+**in this exact order**. Each one is safe to run twice.
+
+```
+supabase/migrations/0001_extensions_enums.sql
+supabase/migrations/0002_geo_tables.sql
+supabase/migrations/0003_donors.sql
+supabase/migrations/0004_requests_recipients.sql
+supabase/migrations/0005_email_queue.sql
+supabase/migrations/0006_admin_settings_admins_audit.sql
+supabase/migrations/0007_views_public.sql
+supabase/migrations/0008_functions.sql
+supabase/migrations/0009_rls_policies.sql
+supabase/migrations/0011_locate_area.sql
+
+supabase/seed/001_districts.sql        64 districts
+supabase/seed/002_upazilas.sql         494 upazilas
+supabase/seed/003_hospitals.sql        42 hospitals
+supabase/seed/004_admin_settings.sql   default settings
+```
+
+`0010_cron.sql` is optional and only needed once email sending exists. Leave it
+for now.
+
+**Check that the privacy rules took.** In the SQL editor:
+
+```sql
+-- Must return zero rows: every table has Row Level Security on.
+select tablename from pg_tables t
+where schemaname = 'public'
+  and not exists (
+    select 1 from pg_class c where c.relname = t.tablename and c.relrowsecurity
+  );
+```
+
+Then, from the browser console on your running site, with the public key:
+
+```js
+await supabase.from('donors').select('phone')   // must return no rows
+```
+
+If that ever returns a phone number, stop and open an issue. That is the one
+thing this project cannot get wrong. See [SECURITY.md](SECURITY.md).
+
+### 2c. Make yourself an admin
+
+Register a user first: Supabase dashboard → **Authentication** → **Users** →
+**Add user**. Then add that user to the allowlist:
+
+```sql
+insert into public.admins (user_id, email, full_name)
+select id, email, 'Your Name' from auth.users where email = 'you@example.com';
+```
+
+A Supabase login alone does not open the admin panel. The allowlist row is what
+does.
+
 > **Is it safe to share the anon key?** Yes. It is designed to be public and it
 > ends up inside the built site either way. What protects donor phone numbers is
 > Row Level Security inside Postgres, not secrecy of this key. The key you must
@@ -155,7 +214,7 @@ Most people who use this site are on a cheap Android phone on a slow network,
 often inside a hospital. The rule is that the first download stays under
 **200kb gzipped**.
 
-Current first load: **about 103kb gzipped**, including CSS.
+Current first load: **about 108kb gzipped**, including CSS.
 
 Anything heavy is loaded only when it is actually needed:
 
@@ -164,6 +223,8 @@ Anything heavy is loaded only when it is actually needed:
 | Supabase client | when the page first asks for data |
 | Framer Motion features | after the page has already appeared |
 | Admin panel | only at `/admin` |
+| Registration wizard | only at `/register` |
+| Leaflet and the map | only when the map is opened |
 | Map and charts | only on the pages that use them |
 
 `npm run build` prints the size of every chunk, and the GitHub Actions run
@@ -178,8 +239,8 @@ This project is being built in phases.
 
 - [x] **Phase 1** Skeleton, design tokens, routing, Bangla and English, dark
       mode, deploy pipeline
-- [ ] **Phase 2** Database schema, Row Level Security, districts and upazilas
-- [ ] **Phase 3** Donor registration, Locate me, map pin
+- [x] **Phase 2** Database schema, Row Level Security, districts and upazilas
+- [x] **Phase 3** Donor registration, Locate me, map pin
 - [ ] **Phase 4** Search and the request flow with donor matching
 - [ ] **Phase 5** Edge Functions and the email pipeline
 - [ ] **Phase 6** Admin panel

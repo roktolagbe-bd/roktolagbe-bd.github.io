@@ -1,6 +1,5 @@
-import { Placeholder } from '@/components/Placeholder'
+import { RegisterWizard } from '@/features/donor/RegisterWizard'
 
-/** Phase 1 stub. Replaced in a later phase. */
 export default function Register() {
-  return <Placeholder titleKey="page.register.title" />
+  return <RegisterWizard />
 }

@@ -25,7 +25,7 @@ export function Header() {
 
   const linkClass = ({ isActive }: { isActive: boolean }) =>
     cn(
-      'rounded-md px-2.5 py-2 text-sm font-bold no-underline transition-colors',
+      'inline-flex min-h-11 items-center rounded-md px-2.5 text-sm font-bold no-underline transition-colors',
       isActive ? 'bg-ink text-surface' : 'text-ink hover:bg-sunk',
     )
 
@@ -56,7 +56,7 @@ export function Header() {
             aria-expanded={open}
             aria-controls="mobile-nav"
             aria-label={open ? t('nav.close') : t('nav.menu')}
-            className="ink-press inline-flex size-9 items-center justify-center rounded-md border-2 border-line bg-raise shadow-ink-1 lg:hidden"
+            className="ink-press inline-flex size-9 items-center justify-center rounded-md border-2 border-line bg-raise lg:hidden"
           >
             <svg viewBox="0 0 20 20" className="size-4" aria-hidden="true" fill="currentColor">
               {open ? (

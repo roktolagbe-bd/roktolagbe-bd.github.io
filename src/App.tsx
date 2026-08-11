@@ -7,12 +7,6 @@ import { Footer } from '@/components/Footer'
 import { ConfigBanner, OfflineBanner } from '@/components/Banners'
 
 import Home from '@/pages/Home'
-import Eligibility from '@/pages/Eligibility'
-import Donors from '@/pages/Donors'
-import Learn from '@/pages/Learn'
-import Privacy from '@/pages/Privacy'
-import Respond from '@/pages/Respond'
-import OptOut from '@/pages/OptOut'
 import NotFound from '@/pages/NotFound'
 
 /* The admin panel is a separate download. Almost nobody who visits this site is
@@ -29,6 +23,15 @@ const Register = lazy(() => import('@/pages/Register'))
    landing page, so they load on navigation rather than up front. */
 const Find = lazy(() => import('@/pages/Find'))
 const Request = lazy(() => import('@/pages/Request'))
+
+/* Content pages. Nobody arriving in an emergency reads these first, so they
+   are not in the download that decides how fast the blood grid appears. */
+const Eligibility = lazy(() => import('@/pages/Eligibility'))
+const Donors = lazy(() => import('@/pages/Donors'))
+const Learn = lazy(() => import('@/pages/Learn'))
+const Privacy = lazy(() => import('@/pages/Privacy'))
+const Respond = lazy(() => import('@/pages/Respond'))
+const OptOut = lazy(() => import('@/pages/OptOut'))
 
 function RouteEffects() {
   const location = useLocation()

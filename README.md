@@ -309,7 +309,9 @@ Most people who use this site are on a cheap Android phone on a slow network,
 often inside a hospital. The rule is that the first download stays under
 **200kb gzipped**.
 
-Current first load: **about 112kb gzipped**, including CSS.
+Current first load: **115kb gzipped**, including CSS. Measured, not estimated:
+`npm run build` prints every chunk, and the GitHub Actions run posts a gzipped
+summary on each push.
 
 Anything heavy is loaded only when it is actually needed:
 
@@ -320,6 +322,7 @@ Anything heavy is loaded only when it is actually needed:
 | Admin panel, Recharts included | only at `/admin` |
 | Registration wizard | only at `/register` |
 | Search and request | only at `/find` and `/request` |
+| Eligibility, donor wall, learn, privacy | only on those pages |
 | Leaflet and the map | only when the map is opened |
 | Map and charts | only on the pages that use them |
 
@@ -340,7 +343,7 @@ This project is being built in phases.
 - [x] **Phase 4** Search and the request flow with donor matching
 - [x] **Phase 5** Edge Functions and the email pipeline
 - [x] **Phase 6** Admin panel
-- [ ] **Phase 7** Design pass, motion, Bangla copy edit, performance check
+- [x] **Phase 7** Design pass, motion, Bangla copy edit, performance check
 
 
 

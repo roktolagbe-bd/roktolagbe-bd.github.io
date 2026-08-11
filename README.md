@@ -93,6 +93,7 @@ supabase/migrations/0006_admin_settings_admins_audit.sql
 supabase/migrations/0007_views_public.sql
 supabase/migrations/0008_functions.sql
 supabase/migrations/0009_rls_policies.sql
+supabase/migrations/0011_locate_area.sql
 
 supabase/seed/001_districts.sql        64 districts
 supabase/seed/002_upazilas.sql         494 upazilas
@@ -213,7 +214,7 @@ Most people who use this site are on a cheap Android phone on a slow network,
 often inside a hospital. The rule is that the first download stays under
 **200kb gzipped**.
 
-Current first load: **about 103kb gzipped**, including CSS.
+Current first load: **about 108kb gzipped**, including CSS.
 
 Anything heavy is loaded only when it is actually needed:
 
@@ -222,6 +223,8 @@ Anything heavy is loaded only when it is actually needed:
 | Supabase client | when the page first asks for data |
 | Framer Motion features | after the page has already appeared |
 | Admin panel | only at `/admin` |
+| Registration wizard | only at `/register` |
+| Leaflet and the map | only when the map is opened |
 | Map and charts | only on the pages that use them |
 
 `npm run build` prints the size of every chunk, and the GitHub Actions run
@@ -237,7 +240,7 @@ This project is being built in phases.
 - [x] **Phase 1** Skeleton, design tokens, routing, Bangla and English, dark
       mode, deploy pipeline
 - [x] **Phase 2** Database schema, Row Level Security, districts and upazilas
-- [ ] **Phase 3** Donor registration, Locate me, map pin
+- [x] **Phase 3** Donor registration, Locate me, map pin
 - [ ] **Phase 4** Search and the request flow with donor matching
 - [ ] **Phase 5** Edge Functions and the email pipeline
 - [ ] **Phase 6** Admin panel

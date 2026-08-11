@@ -9,7 +9,6 @@ import { ConfigBanner, OfflineBanner } from '@/components/Banners'
 import Home from '@/pages/Home'
 import Find from '@/pages/Find'
 import Request from '@/pages/Request'
-import Register from '@/pages/Register'
 import Eligibility from '@/pages/Eligibility'
 import Donors from '@/pages/Donors'
 import Learn from '@/pages/Learn'
@@ -20,6 +19,11 @@ import NotFound from '@/pages/NotFound'
 /* The admin panel is a separate download. Almost nobody who visits this site is
    an admin, and the people who are can afford to wait a second. */
 const AdminApp = lazy(() => import('@/features/admin/AdminApp'))
+
+/* The registration wizard carries validation, the district list and the map
+   loader. None of that belongs in the download someone gets when they arrive
+   on the landing page needing blood in the next thirty seconds. */
+const Register = lazy(() => import('@/pages/Register'))
 
 function RouteEffects() {
   const location = useLocation()

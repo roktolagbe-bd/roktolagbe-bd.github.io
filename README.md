@@ -78,31 +78,48 @@ npx tsc -b       # type check only
 
 7. Stop the dev server and start it again. The "not connected" banner goes away.
 
-### 2b. Create the tables
+### 2b. Create the database
 
-In the Supabase dashboard, open **SQL Editor**, then paste and run these files
-**in this exact order**. Each one is safe to run twice.
+The whole database lives in this repository. Pick whichever way suits you.
+Both produce exactly the same result.
 
-```
-supabase/migrations/0001_extensions_enums.sql
-supabase/migrations/0002_geo_tables.sql
-supabase/migrations/0003_donors.sql
-supabase/migrations/0004_requests_recipients.sql
-supabase/migrations/0005_email_queue.sql
-supabase/migrations/0006_admin_settings_admins_audit.sql
-supabase/migrations/0007_views_public.sql
-supabase/migrations/0008_functions.sql
-supabase/migrations/0009_rls_policies.sql
-supabase/migrations/0011_locate_area.sql
+**Option A, with the Supabase CLI.** This is the right way if you can install
+things. It applies every migration in order and keeps track of which have run.
 
-supabase/seed/001_districts.sql        64 districts
-supabase/seed/002_upazilas.sql         494 upazilas
-supabase/seed/003_hospitals.sql        42 hospitals
-supabase/seed/004_admin_settings.sql   default settings
+```bash
+npm i -g supabase          # or: brew install supabase/tap/supabase
+supabase login
+supabase link --project-ref YOUR_PROJECT_REF
+supabase db push           # creates every table, view, function and policy
 ```
 
-`0010_cron.sql` is optional and only needed once email sending exists. Leave it
-for now.
+Then load the geography and settings:
+
+```bash
+supabase db push --include-seed
+# or, if you prefer:  psql "$DATABASE_URL" -f supabase/seed.sql
+```
+
+**Option B, paste into the browser.** No installation needed. In the Supabase
+dashboard open **SQL Editor** and run these two files, in this order:
+
+```
+supabase/setup.sql     everything: tables, views, functions, security rules
+supabase/seed.sql      64 districts, 494 upazilas, 42 hospitals, settings
+```
+
+Both are safe to run more than once. `setup.sql` runs in a single transaction,
+so either the whole database is created or none of it is.
+
+> `supabase/setup.sql` and `supabase/seed.sql` are **generated** from the files
+> in `supabase/migrations` and `supabase/seed`. Change a migration, then run
+> `node scripts/build-setup-sql.mjs` to rebuild them. Never edit the generated
+> files directly, and never change the database by hand in the dashboard: if a
+> change is not in a migration, the next person to set this up will not have it.
+
+`supabase/optional/cron_schedule.sql` is not part of the migrations. It is only
+needed once email sending is on, and it has placeholders you must fill in
+first. See section 3d.
 
 **Check that the privacy rules took.** In the SQL editor:
 
@@ -146,7 +163,99 @@ does.
 
 ---
 
-## 3. Put it live on GitHub Pages
+## 3. Turn on email
+
+Everything above works without this. Do this when you are ready for donors to
+actually be told about requests.
+
+### 3a. Make a Gmail App Password
+
+An App Password is a 16 character key that lets one program send mail as your
+account, without giving it your real password. You can revoke it any time.
+
+1. Sign in to **roktolagbe.bd@gmail.com**.
+2. Turn on 2-Step Verification: https://myaccount.google.com/signinoptions/two-step-verification
+   App Passwords do not exist until you do.
+3. Go to https://myaccount.google.com/apppasswords
+4. Type a name, for example `Roktolagbe`, and press **Create**.
+5. Copy the 16 characters. Google shows it once. Spaces do not matter.
+
+### 3b. Give the secrets to Supabase
+
+In the Supabase dashboard: **Project Settings** → **Edge Functions** → **Secrets**.
+
+| Name | Value |
+| --- | --- |
+| `GMAIL_USER` | `roktolagbe.bd@gmail.com` |
+| `GMAIL_APP_PASSWORD` | the 16 characters from step 3a |
+
+`SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are provided automatically.
+
+**Never put these in this repository, in a `VITE_` variable, or in a GitHub
+secret used by the site build.** The App Password can send mail as you. The
+service_role key bypasses every privacy rule in the database.
+
+### 3c. Deploy the functions
+
+Install the Supabase CLI (https://supabase.com/docs/guides/cli), then:
+
+```bash
+supabase login
+supabase link --project-ref YOUR_PROJECT_REF
+supabase functions deploy send-request-emails
+supabase functions deploy drain-email-queue
+supabase functions deploy respond
+```
+
+### 3d. Drain the queue on a schedule
+
+Nothing sends by itself. Something has to empty `email_queue`. Pick one:
+
+- **pg_cron**: run `supabase/migrations/0010_cron.sql`, after replacing the two
+  placeholders in it. Everything stays inside Supabase.
+- **GitHub Actions**: enable `.github/workflows/drain-queue.yml`.
+
+Do not do both, or every email gets two attempts at once.
+
+### 3e. Turn the master switch on
+
+Emails stay off until you say so. In the SQL editor:
+
+```sql
+update public.admin_settings set value = 'true'::jsonb where key = 'auto_email_enabled';
+```
+
+Until you do, matching still runs on every request and recipients are recorded
+with status `skipped`, so you can see exactly who would have been contacted.
+Nothing is lost by leaving it off while you test.
+
+### 3f. Set the IP salt
+
+So that hashed IP addresses cannot be reversed:
+
+```sql
+alter database postgres set app.ip_salt = 'paste a long random string here';
+```
+
+### How to test it safely
+
+1. Leave `auto_email_enabled` **false**.
+2. Register yourself as a donor with your own email, in a district you can pick.
+3. Send a request for your own blood group in that district.
+4. Check `request_recipients`. You should be there with status `skipped`.
+5. Now set the switch to true and send another request. Check `email_queue`,
+   then run the drain function once by hand:
+
+```bash
+curl -X POST "https://YOUR_PROJECT_REF.supabase.co/functions/v1/drain-email-queue" \
+  -H "Authorization: Bearer YOUR_SERVICE_ROLE_KEY"
+```
+
+You should get the email, and the Accept button should work without logging in.
+
+---
+
+## 4. Put it live on GitHub Pages
 
 This repository is an **organisation root site**. It publishes to
 `https://roktolagbe-bd.github.io` with no sub-path, which is why
@@ -183,7 +292,7 @@ path, so it only affects genuine typos.
 
 ---
 
-## 4. How the project is laid out
+## 5. How the project is laid out
 
 ```
 src/
@@ -208,13 +317,15 @@ Two files are worth reading before you change anything visual:
 
 ---
 
-## 5. Performance budget
+## 6. Performance budget
 
 Most people who use this site are on a cheap Android phone on a slow network,
 often inside a hospital. The rule is that the first download stays under
 **200kb gzipped**.
 
-Current first load: **about 108kb gzipped**, including CSS.
+Current first load: **115kb gzipped**, including CSS. Measured, not estimated:
+`npm run build` prints every chunk, and the GitHub Actions run posts a gzipped
+summary on each push.
 
 Anything heavy is loaded only when it is actually needed:
 
@@ -222,8 +333,10 @@ Anything heavy is loaded only when it is actually needed:
 | --- | --- |
 | Supabase client | when the page first asks for data |
 | Framer Motion features | after the page has already appeared |
-| Admin panel | only at `/admin` |
+| Admin panel, Recharts included | only at `/admin` |
 | Registration wizard | only at `/register` |
+| Search and request | only at `/find` and `/request` |
+| Eligibility, donor wall, learn, privacy | only on those pages |
 | Leaflet and the map | only when the map is opened |
 | Map and charts | only on the pages that use them |
 
@@ -233,7 +346,7 @@ budget, that shows up in the pull request.
 
 ---
 
-## 6. What is built so far
+## 7. What is built so far
 
 This project is being built in phases.
 
@@ -241,13 +354,12 @@ This project is being built in phases.
       mode, deploy pipeline
 - [x] **Phase 2** Database schema, Row Level Security, districts and upazilas
 - [x] **Phase 3** Donor registration, Locate me, map pin
-- [ ] **Phase 4** Search and the request flow with donor matching
-- [ ] **Phase 5** Edge Functions and the email pipeline
-- [ ] **Phase 6** Admin panel
-- [ ] **Phase 7** Design pass, motion, Bangla copy edit, performance check
+- [x] **Phase 4** Search and the request flow with donor matching
+- [x] **Phase 5** Edge Functions and the email pipeline
+- [x] **Phase 6** Admin panel
+- [x] **Phase 7** Design pass, motion, Bangla copy edit, performance check
 
-Instructions for running database migrations and setting up Gmail sending will
-be added to this file in Phases 2 and 5, once those parts exist.
+
 
 ---
 

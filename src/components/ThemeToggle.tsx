@@ -11,7 +11,7 @@ export function ThemeToggle() {
       onClick={toggle}
       aria-label={t('theme.toggle')}
       title={resolved === 'dark' ? t('theme.light') : t('theme.dark')}
-      className="ink-press inline-flex size-9 items-center justify-center rounded-md border-2 border-line bg-raise text-ink shadow-ink-1"
+      className="ink-press inline-flex size-9 items-center justify-center rounded-md border-2 border-line bg-raise text-ink"
     >
       {/* Flat shapes, no gradients: a filled disc for light, a cut disc for
           dark. Same silhouette in both states so the header does not jump. */}

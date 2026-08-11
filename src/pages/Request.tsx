@@ -1,6 +1,5 @@
-import { Placeholder } from '@/components/Placeholder'
+import { RequestForm } from '@/features/request/RequestForm'
 
-/** Phase 1 stub. Replaced in a later phase. */
 export default function Request() {
-  return <Placeholder titleKey="page.request.title" />
+  return <RequestForm />
 }

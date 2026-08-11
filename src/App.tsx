@@ -7,13 +7,6 @@ import { Footer } from '@/components/Footer'
 import { ConfigBanner, OfflineBanner } from '@/components/Banners'
 
 import Home from '@/pages/Home'
-import Find from '@/pages/Find'
-import Request from '@/pages/Request'
-import Eligibility from '@/pages/Eligibility'
-import Donors from '@/pages/Donors'
-import Learn from '@/pages/Learn'
-import Privacy from '@/pages/Privacy'
-import Respond from '@/pages/Respond'
 import NotFound from '@/pages/NotFound'
 
 /* The admin panel is a separate download. Almost nobody who visits this site is
@@ -24,6 +17,21 @@ const AdminApp = lazy(() => import('@/features/admin/AdminApp'))
    loader. None of that belongs in the download someone gets when they arrive
    on the landing page needing blood in the next thirty seconds. */
 const Register = lazy(() => import('@/pages/Register'))
+
+/* Search and the request form both pull in the district list, the map loader
+   and their own validation. They are the two pages people arrive at from the
+   landing page, so they load on navigation rather than up front. */
+const Find = lazy(() => import('@/pages/Find'))
+const Request = lazy(() => import('@/pages/Request'))
+
+/* Content pages. Nobody arriving in an emergency reads these first, so they
+   are not in the download that decides how fast the blood grid appears. */
+const Eligibility = lazy(() => import('@/pages/Eligibility'))
+const Donors = lazy(() => import('@/pages/Donors'))
+const Learn = lazy(() => import('@/pages/Learn'))
+const Privacy = lazy(() => import('@/pages/Privacy'))
+const Respond = lazy(() => import('@/pages/Respond'))
+const OptOut = lazy(() => import('@/pages/OptOut'))
 
 function RouteEffects() {
   const location = useLocation()
@@ -78,6 +86,8 @@ export default function App() {
             <Route path="/privacy" element={<Privacy />} />
             {/* Reached only from a tokenised link in an email. No login. */}
             <Route path="/respond/:token" element={<Respond />} />
+            {/* One tap from any email, and the emails stop. */}
+            <Route path="/opt-out/:token" element={<OptOut />} />
             <Route path="/admin/*" element={<AdminApp />} />
             <Route path="*" element={<NotFound />} />
           </Routes>

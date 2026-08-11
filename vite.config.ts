@@ -26,7 +26,13 @@ export default defineConfig({
         manualChunks(id) {
           if (!id.includes('node_modules')) return
           if (id.includes('leaflet')) return 'vendor-map'
-          if (id.includes('recharts') || id.includes('d3-')) return 'vendor-charts'
+          // Recharts is deliberately NOT grouped here. Forcing it into a named
+          // chunk made Rollup treat it as a static dependency of the entry, and
+          // Vite then emitted a modulepreload for it: 107kb gzipped of charting
+          // downloaded by every person who opens the landing page needing blood.
+          // Left alone, it lands inside the lazy admin chunk where it belongs.
+          // Same trap as framer-motion above. Verify with:
+          //   grep -o 'assets/[^"]*\.js' dist/index.html
           if (id.includes('@supabase')) return 'vendor-supabase'
           // framer-motion is deliberately NOT grouped here. Forcing it into one
           // chunk would defeat the LazyMotion split in src/lib/motion.tsx and

@@ -78,34 +78,48 @@ npx tsc -b       # type check only
 
 7. Stop the dev server and start it again. The "not connected" banner goes away.
 
-### 2b. Create the tables
+### 2b. Create the database
 
-In the Supabase dashboard, open **SQL Editor**, then paste and run these files
-**in this exact order**. Each one is safe to run twice.
+The whole database lives in this repository. Pick whichever way suits you.
+Both produce exactly the same result.
 
-```
-supabase/migrations/0001_extensions_enums.sql
-supabase/migrations/0002_geo_tables.sql
-supabase/migrations/0003_donors.sql
-supabase/migrations/0004_requests_recipients.sql
-supabase/migrations/0005_email_queue.sql
-supabase/migrations/0006_admin_settings_admins_audit.sql
-supabase/migrations/0007_views_public.sql
-supabase/migrations/0008_functions.sql
-supabase/migrations/0009_rls_policies.sql
-supabase/migrations/0011_locate_area.sql
-supabase/migrations/0012_matcher.sql
-supabase/migrations/0013_email_pipeline.sql
-supabase/migrations/0014_admin.sql
+**Option A, with the Supabase CLI.** This is the right way if you can install
+things. It applies every migration in order and keeps track of which have run.
 
-supabase/seed/001_districts.sql        64 districts
-supabase/seed/002_upazilas.sql         494 upazilas
-supabase/seed/003_hospitals.sql        42 hospitals
-supabase/seed/004_admin_settings.sql   default settings
+```bash
+npm i -g supabase          # or: brew install supabase/tap/supabase
+supabase login
+supabase link --project-ref YOUR_PROJECT_REF
+supabase db push           # creates every table, view, function and policy
 ```
 
-`0010_cron.sql` is optional and only needed once email sending exists. Leave it
-for now.
+Then load the geography and settings:
+
+```bash
+supabase db push --include-seed
+# or, if you prefer:  psql "$DATABASE_URL" -f supabase/seed.sql
+```
+
+**Option B, paste into the browser.** No installation needed. In the Supabase
+dashboard open **SQL Editor** and run these two files, in this order:
+
+```
+supabase/setup.sql     everything: tables, views, functions, security rules
+supabase/seed.sql      64 districts, 494 upazilas, 42 hospitals, settings
+```
+
+Both are safe to run more than once. `setup.sql` runs in a single transaction,
+so either the whole database is created or none of it is.
+
+> `supabase/setup.sql` and `supabase/seed.sql` are **generated** from the files
+> in `supabase/migrations` and `supabase/seed`. Change a migration, then run
+> `node scripts/build-setup-sql.mjs` to rebuild them. Never edit the generated
+> files directly, and never change the database by hand in the dashboard: if a
+> change is not in a migration, the next person to set this up will not have it.
+
+`supabase/optional/cron_schedule.sql` is not part of the migrations. It is only
+needed once email sending is on, and it has placeholders you must fill in
+first. See section 3d.
 
 **Check that the privacy rules took.** In the SQL editor:
 

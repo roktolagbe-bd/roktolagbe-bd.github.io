@@ -1,0 +1,54 @@
+# Supabase CLI project config.
+#
+# With this file, the entire database is reproducible from the repository:
+#
+#   supabase link --project-ref YOUR_PROJECT_REF
+#   supabase db push          # applies every migration in order
+#   psql "$DATABASE_URL" -f supabase/seed.sql
+#
+# The migrations in supabase/migrations are the source of truth. The database
+# is not something anyone should be editing by hand in the dashboard: if a
+# change is not in a migration file, it does not exist as far as this project
+# is concerned, and the next person to stand the project up will not have it.
+
+project_id = "roktolagbe"
+
+[db]
+# Supabase's own default. Only matters for `supabase start` locally.
+port = 54322
+major_version = 15
+
+[db.seed]
+enabled = true
+sql_paths = ["./seed.sql"]
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[auth]
+enabled = true
+site_url = "https://roktolagbe-bd.github.io"
+additional_redirect_urls = ["http://localhost:5173"]
+# Admins are created by hand and added to the allowlist. Nobody should be able
+# to sign themselves up: a Supabase account is not the gate, the admins table
+# is, but leaving open signup on would let anyone create a session.
+enable_signup = false
+
+[auth.email]
+enable_signup = false
+enable_confirmations = false
+
+[functions.send-request-emails]
+verify_jwt = false
+
+[functions.drain-email-queue]
+verify_jwt = false
+
+[functions.respond]
+# Reached from a link in an email, by someone who is not logged in. The token
+# in the body is the credential.
+verify_jwt = false

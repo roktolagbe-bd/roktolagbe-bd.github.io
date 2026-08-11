@@ -1,0 +1,189 @@
+/* =============================================================================
+   Roktolagbe design tokens
+   -----------------------------------------------------------------------------
+   The reference is Bangladeshi enamel signboard painting and rickshaw art:
+   flat saturated shapes, hard ink outlines, offset shadows with ZERO blur.
+   Nothing here is soft. There are no gradients and no blurred shadows.
+
+   Two rules govern the whole system:
+
+   1. All the boldness lives in the eight blood group tiles. Everything else is
+      quiet. If a new component wants to be colourful, the answer is no.
+   2. Red means blood or danger. It is never used for ordinary chrome.
+
+   Colour flips between light and dark, but THE TILES DO NOT. The grid is the
+   constant object; the room around it changes. That is deliberate.
+   ========================================================================== */
+
+:root {
+  /* --- Surfaces and text ------------------------------------------------- */
+  --c-ink: #141310; /* text and outlines: warm near-black, like sign paint */
+  --c-surface: #f3f4f0; /* page: chalky signage white with a green undertone */
+  --c-raise: #ffffff; /* cards sitting on the page                          */
+  --c-sunk: #e9eae4; /* wells, table stripes, disabled fills                */
+  --c-muted: #63625b; /* secondary text. 6.2:1 on surface                   */
+  --c-line: #141310; /* borders are ink. Always.                            */
+  --c-line-soft: #cfd0c8; /* the one exception: hairlines inside dense tables    */
+  --c-edge: #141310; /* the hard offset shadow colour                       */
+
+  /* --- Accents ----------------------------------------------------------- */
+  --c-shindur: #c62828; /* blood, critical. 5.9:1 on surface                   */
+  --c-nil: #2b3f8c; /* primary action, links. 8.5:1 on surface             */
+  --c-jol: #0b6f6c; /* success, "someone said yes". 5.2:1 on surface       */
+  --c-gada: #8a5a00; /* warning text. 5.4:1 on surface                      */
+  --c-pata: #2b6b46; /* eligible, available. 5.6:1 on surface               */
+
+  /* Saturated fills of the same hues, for blocks that carry ink text on top. */
+  --c-shindur-fill: #ff9e93;
+  --c-nil-fill: #a7b6f5;
+  --c-jol-fill: #7ce8e0;
+  --c-gada-fill: #ffc94f;
+  --c-pata-fill: #8fe0a4;
+
+  /* Text that sits ON a solid accent block (a button, a badge). This has to be
+     its own token: the accents invert between themes, so a hard-coded white
+     would drop to 2.2:1 the moment dark mode turns the accent pale. */
+  --c-on-nil: #ffffff;
+  --c-on-shindur: #ffffff;
+  --c-on-jol: #ffffff;
+
+  /* --- Focus ------------------------------------------------------------- */
+  --c-focus: #2b3f8c;
+  --c-focus-halo: #ffc94f;
+}
+
+.dark {
+  --c-ink: #f2f0ea;
+  --c-surface: #141310;
+  --c-raise: #1f1d19;
+  --c-sunk: #2a2721;
+  --c-muted: #a8a69d; /* 7.4:1 on the dark surface */
+  --c-line: #f2f0ea;
+  --c-line-soft: #423e37;
+  --c-edge: #f2f0ea; /* a light offset shadow on ink reads as screenprint
+                              misregistration. It is the same idea inverted. */
+
+  --c-shindur: #ff8a7d;
+  --c-nil: #9fb0ff;
+  --c-jol: #4fded6;
+  --c-gada: #ffc145;
+  --c-pata: #6fd693;
+
+  /* In dark mode the accents are pale, so text on them goes to ink. */
+  --c-on-nil: #141310;
+  --c-on-shindur: #141310;
+  --c-on-jol: #141310;
+
+  /* Fills stay identical to light mode. Tile text is always dark ink. */
+  --c-focus: #ffc145;
+  --c-focus-halo: #2b3f8c;
+}
+
+/* =============================================================================
+   The eight blood group tiles
+   -----------------------------------------------------------------------------
+   Hue carries the letter group. Tint carries the sign: positive is lighter,
+   negative is deeper. Colour NEVER carries meaning alone. Every tile also
+   shows its sign as a separate high-contrast block, and scarce groups get a
+   diagonal hatch, so the grid still works in greyscale and for colour-blind
+   users.
+
+   Every fill below has been checked at 4.5:1 or better against --tile-ink.
+   ========================================================================== */
+:root,
+.dark {
+  --tile-ink: #141310; /* fixed in both themes: fills are always light */
+
+  --tile-a-pos: #b9c5f7;
+  --tile-a-neg: #8b9ce8;
+  --tile-b-pos: #93ebe4;
+  --tile-b-neg: #4fcfc6;
+  --tile-ab-pos: #ffd475;
+  --tile-ab-neg: #f5ac26;
+  --tile-o-pos: #ffb0a6;
+  --tile-o-neg: #fa8071;
+}
+
+/* =============================================================================
+   Shape, depth, motion
+   ========================================================================== */
+:root {
+  /* Sign painting is flat. Radius is small everywhere and generous in exactly
+     one place: the blood group tiles. */
+  --r-sm: 3px;
+  --r-md: 4px;
+  --r-lg: 8px;
+  --r-tile: 20px;
+  --r-pill: 999px;
+
+  /* Hard offset shadows. No blur, ever. */
+  --sh-1: 2px 2px 0 var(--c-edge);
+  --sh-2: 4px 4px 0 var(--c-edge);
+  --sh-3: 6px 6px 0 var(--c-edge);
+
+  --border-ink: 2px solid var(--c-line);
+
+  --dur-fast: 120ms;
+  --dur-base: 180ms;
+  --dur-slow: 240ms;
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+/* =============================================================================
+   Tailwind theme mapping
+   -----------------------------------------------------------------------------
+   Tailwind v4 reads these to generate utilities. Every value points at a
+   runtime CSS variable so that adding .dark to <html> reskins the entire site
+   without Tailwind emitting a single duplicate rule.
+   ========================================================================== */
+@theme inline {
+  --color-ink: var(--c-ink);
+  --color-surface: var(--c-surface);
+  --color-raise: var(--c-raise);
+  --color-sunk: var(--c-sunk);
+  --color-muted: var(--c-muted);
+  --color-line: var(--c-line);
+  --color-line-soft: var(--c-line-soft);
+  --color-edge: var(--c-edge);
+
+  --color-shindur: var(--c-shindur);
+  --color-nil: var(--c-nil);
+  --color-jol: var(--c-jol);
+  --color-gada: var(--c-gada);
+  --color-pata: var(--c-pata);
+
+  --color-shindur-fill: var(--c-shindur-fill);
+  --color-nil-fill: var(--c-nil-fill);
+  --color-jol-fill: var(--c-jol-fill);
+  --color-gada-fill: var(--c-gada-fill);
+  --color-pata-fill: var(--c-pata-fill);
+
+  --color-on-nil: var(--c-on-nil);
+  --color-on-shindur: var(--c-on-shindur);
+  --color-on-jol: var(--c-on-jol);
+
+  --color-tile-ink: var(--tile-ink);
+
+  --radius-sm: var(--r-sm);
+  --radius-md: var(--r-md);
+  --radius-lg: var(--r-lg);
+  --radius-tile: var(--r-tile);
+
+  --shadow-ink-1: var(--sh-1);
+  --shadow-ink-2: var(--sh-2);
+  --shadow-ink-3: var(--sh-3);
+
+  --font-sans: 'Anek Latin', 'Anek Bangla', ui-sans-serif, system-ui, sans-serif;
+  --font-bangla: 'Anek Bangla', 'Anek Latin', ui-sans-serif, system-ui, sans-serif;
+
+  --ease-out-signage: cubic-bezier(0.2, 0.8, 0.2, 1);
+
+  /* 320px is a real device we support, so the scale starts small and the
+     display sizes are fluid rather than stepped. */
+  --text-display: clamp(2.75rem, 11vw, 5.5rem);
+  --text-display--line-height: 0.94;
+  --text-display--letter-spacing: -0.02em;
+  --text-hero: clamp(2rem, 7vw, 3.5rem);
+  --text-hero--line-height: 1.02;
+  --text-hero--letter-spacing: -0.015em;
+}

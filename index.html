@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="bn" class="no-js">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#F3F4F0" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#141310" media="(prefers-color-scheme: dark)" />
+
+    <title>রক্ত লাগবে — Roktolagbe</title>
+    <meta
+      name="description"
+      content="বাংলাদেশে আপনার কাছের রক্তদাতা খুঁজুন। বিনামূল্যে, দ্রুত। Find a blood donor near you in Bangladesh. Free and fast."
+    />
+    <link rel="canonical" href="https://roktolagbe-bd.github.io/" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="রক্ত লাগবে" />
+    <meta property="og:title" content="রক্ত লাগবে — Roktolagbe" />
+    <meta
+      property="og:description"
+      content="বাংলাদেশে আপনার কাছের রক্তদাতা খুঁজুন। বিনামূল্যে, দ্রুত।"
+    />
+    <meta property="og:url" content="https://roktolagbe-bd.github.io/" />
+    <meta name="twitter:card" content="summary_large_image" />
+
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/icon-192.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+
+    <!-- Bangla is the default language, so the Bangla face is the one we preload. -->
+    <link
+      rel="preload"
+      href="/fonts/anek-bangla-bengali.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+
+    <script>
+      // Runs before first paint so the page never flashes the wrong theme or
+      // the wrong script. Kept inline and tiny on purpose.
+      ;(function () {
+        var d = document.documentElement
+        d.classList.remove('no-js')
+        try {
+          var theme = localStorage.getItem('roktolagbe.theme')
+          if (!theme || theme === 'system') {
+            theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+          }
+          if (theme === 'dark') d.classList.add('dark')
+
+          var lang = localStorage.getItem('roktolagbe.lang') || 'bn'
+          d.lang = lang
+          d.classList.add(lang === 'bn' ? 'lang-bn' : 'lang-en')
+        } catch (e) {
+          /* private mode, storage blocked: fall through to the Bangla default */
+        }
+      })()
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <noscript>
+      <div style="padding: 24px; font-family: system-ui, sans-serif">
+        <h1>রক্ত লাগবে</h1>
+        <p>
+          এই সাইটটি চালাতে জাভাস্ক্রিপ্ট দরকার। অনুগ্রহ করে ব্রাউজারে জাভাস্ক্রিপ্ট চালু করুন।
+        </p>
+        <p>This site needs JavaScript. Please turn JavaScript on in your browser.</p>
+      </div>
+    </noscript>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

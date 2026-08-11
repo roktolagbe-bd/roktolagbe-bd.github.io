@@ -94,6 +94,7 @@ supabase/migrations/0007_views_public.sql
 supabase/migrations/0008_functions.sql
 supabase/migrations/0009_rls_policies.sql
 supabase/migrations/0011_locate_area.sql
+supabase/migrations/0012_matcher.sql
 
 supabase/seed/001_districts.sql        64 districts
 supabase/seed/002_upazilas.sql         494 upazilas
@@ -214,7 +215,7 @@ Most people who use this site are on a cheap Android phone on a slow network,
 often inside a hospital. The rule is that the first download stays under
 **200kb gzipped**.
 
-Current first load: **about 108kb gzipped**, including CSS.
+Current first load: **about 111kb gzipped**, including CSS.
 
 Anything heavy is loaded only when it is actually needed:
 
@@ -224,6 +225,7 @@ Anything heavy is loaded only when it is actually needed:
 | Framer Motion features | after the page has already appeared |
 | Admin panel | only at `/admin` |
 | Registration wizard | only at `/register` |
+| Search and request | only at `/find` and `/request` |
 | Leaflet and the map | only when the map is opened |
 | Map and charts | only on the pages that use them |
 
@@ -241,7 +243,7 @@ This project is being built in phases.
       mode, deploy pipeline
 - [x] **Phase 2** Database schema, Row Level Security, districts and upazilas
 - [x] **Phase 3** Donor registration, Locate me, map pin
-- [ ] **Phase 4** Search and the request flow with donor matching
+- [x] **Phase 4** Search and the request flow with donor matching
 - [ ] **Phase 5** Edge Functions and the email pipeline
 - [ ] **Phase 6** Admin panel
 - [ ] **Phase 7** Design pass, motion, Bangla copy edit, performance check

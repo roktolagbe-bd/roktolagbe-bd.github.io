@@ -7,8 +7,6 @@ import { Footer } from '@/components/Footer'
 import { ConfigBanner, OfflineBanner } from '@/components/Banners'
 
 import Home from '@/pages/Home'
-import Find from '@/pages/Find'
-import Request from '@/pages/Request'
 import Eligibility from '@/pages/Eligibility'
 import Donors from '@/pages/Donors'
 import Learn from '@/pages/Learn'
@@ -24,6 +22,12 @@ const AdminApp = lazy(() => import('@/features/admin/AdminApp'))
    loader. None of that belongs in the download someone gets when they arrive
    on the landing page needing blood in the next thirty seconds. */
 const Register = lazy(() => import('@/pages/Register'))
+
+/* Search and the request form both pull in the district list, the map loader
+   and their own validation. They are the two pages people arrive at from the
+   landing page, so they load on navigation rather than up front. */
+const Find = lazy(() => import('@/pages/Find'))
+const Request = lazy(() => import('@/pages/Request'))
 
 function RouteEffects() {
   const location = useLocation()

@@ -82,7 +82,7 @@
   "form.bloodGroup": "রক্তের গ্রুপ",
   "form.contact.promise": "আপনার ফোন নম্বর কখনও ওয়েবসাইটে দেখানো হবে না। শুধু আপনি নিজে কোনো অনুরোধে হ্যাঁ বললে, সেই একজন মানুষ নম্বরটি পাবেন।",
   "form.phone": "মোবাইল নম্বর",
-  "form.phone.hint": "যেমন ০১৭১২৩৪৫৬৭৮",
+  "form.phone.hint": "কোড আলাদা। শুধু নম্বরটি লিখুন, যেমন ১৭১২ ৩৪৫৬৭৮।",
   "form.whatsapp": "হোয়াটসঅ্যাপ নম্বর",
   "form.whatsapp.hint": "মোবাইল নম্বরের চেয়ে আলাদা হলে দিন।",
   "form.email": "ইমেইল",
@@ -111,7 +111,7 @@
   "validation.nameRequired": "নামটি লিখুন।",
   "validation.bloodGroupRequired": "রক্তের গ্রুপ বেছে নিন।",
   "validation.phoneRequired": "মোবাইল নম্বর লিখুন।",
-  "validation.phoneInvalid": "নম্বরটি মিলছে না। ১১ সংখ্যার নম্বর দিন, যেমন ০১৭১২৩৪৫৬৭৮।",
+  "validation.phoneInvalid": "নম্বরটি মিলছে না। বাংলাদেশের নম্বর ১১ সংখ্যার, যেমন ০১৭১২৩৪৫৬৭৮।",
   "validation.emailInvalid": "ইমেইল ঠিকানাটি মিলছে না।",
   "validation.emailNeededForAlerts": "ইমেইলে খবর পেতে চাইলে ইমেইল ঠিকানা লাগবে।",
   "validation.facebookInvalid": "ফেসবুকের লিংক দিন।",
@@ -414,5 +414,7 @@
   "privacy.p5.body": "এই সাইটে কোনো ট্র্যাকার, বিজ্ঞাপন বা বাইরের ফন্ট নেই। আপনার তথ্য কারও কাছে বিক্রি হয় না।",
   "privacy.check.title": "বিশ্বাস করতে হবে না, দেখে নিন",
   "privacy.check.body": "সব কোড খোলা। নিয়মগুলো কোথায় লেখা আছে তা নিচে দেওয়া হলো।",
-  "privacy.contact": "কিছু জানার থাকলে লিখুন"
+  "privacy.contact": "কিছু জানার থাকলে লিখুন",
+  "form.countryCode": "দেশের কোড",
+  "location.upazilaUncertain": "উপজেলা নিশ্চিত করা গেল না। ঢাকা শহরের ভেতরে উপজেলা নেই, তাই নিচের তালিকা থেকে নিজে বেছে নিন বা খালি রাখুন।"
 }

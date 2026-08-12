@@ -82,7 +82,7 @@
   "form.bloodGroup": "Blood group",
   "form.contact.promise": "Your phone number is never shown on this site. It goes to one person, once, and only if you say yes to their request.",
   "form.phone": "Mobile number",
-  "form.phone.hint": "For example 01712345678",
+  "form.phone.hint": "The code is separate. Just the number, like 1712 345678.",
   "form.whatsapp": "WhatsApp number",
   "form.whatsapp.hint": "Only if it is different from your mobile number.",
   "form.email": "Email",
@@ -111,7 +111,7 @@
   "validation.nameRequired": "Please write your name.",
   "validation.bloodGroupRequired": "Please pick your blood group.",
   "validation.phoneRequired": "Please write your mobile number.",
-  "validation.phoneInvalid": "That number does not look right. Use 11 digits, like 01712345678.",
+  "validation.phoneInvalid": "That number does not look right. A Bangladeshi number is 11 digits, like 01712345678.",
   "validation.emailInvalid": "That email address does not look right.",
   "validation.emailNeededForAlerts": "We need an email address to tell you about requests.",
   "validation.facebookInvalid": "Please use a Facebook link.",
@@ -414,5 +414,7 @@
   "privacy.p5.body": "There are no trackers, no adverts and no third-party fonts on this site. Your data is never sold.",
   "privacy.check.title": "Do not take our word for it",
   "privacy.check.body": "All the code is open. Here is exactly where the rules are written.",
-  "privacy.contact": "Questions? Write to"
+  "privacy.contact": "Questions? Write to",
+  "form.countryCode": "Country code",
+  "location.upazilaUncertain": "We could not tell which upazila. Inside Dhaka city there are none, so pick one below or leave it blank."
 }

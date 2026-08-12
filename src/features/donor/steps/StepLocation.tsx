@@ -3,7 +3,7 @@ import { Field, Input, Select } from '@/components/form/Field'
 import { Button } from '@/components/Button'
 import { useI18n, type TKey } from '@/lib/i18n'
 import { useGeolocation, isInBangladesh, type Coords } from '@/lib/geolocation'
-import { locateArea, upazilasOf, usePlaces } from '@/lib/places'
+import { locateArea, upazilaIsConfident, upazilasOf, usePlaces } from '@/lib/places'
 import type { StepProps } from '../types'
 
 /* Leaflet is about 45kb gzipped. It loads when this step is reached, not
@@ -24,6 +24,7 @@ export function StepLocation({ form, errors, update }: StepProps) {
   const [showMap, setShowMap] = useState(Boolean(form.coords))
   const [areaNote, setAreaNote] = useState<string | null>(null)
   const [outsideCountry, setOutsideCountry] = useState(false)
+  const [upazilaUncertain, setUpazilaUncertain] = useState(false)
 
   const label = (en: string, bn: string) => (lang === 'bn' ? bn : en)
 
@@ -47,15 +48,18 @@ export function StepLocation({ form, errors, update }: StepProps) {
     let cancelled = false
     void locateArea(coords).then((area) => {
       if (cancelled || !area) return
+
+      // The district is reliable. The upazila is only a nearest-centroid guess,
+      // and in Dhaka city there is no correct one to guess, so it is filled in
+      // only when the centroid is genuinely close. Otherwise it is left for the
+      // user, with a note saying why.
+      const confident = upazilaIsConfident(area)
       update({
         districtId: area.district_id,
-        upazilaId: area.upazila_id ?? null,
+        upazilaId: confident ? (area.upazila_id ?? null) : null,
       })
-      setAreaNote(
-        [label(area.district_en, area.district_bn), area.upazila_en && label(area.upazila_en, area.upazila_bn ?? area.upazila_en)]
-          .filter(Boolean)
-          .join(', '),
-      )
+      setAreaNote(label(area.district_en, area.district_bn))
+      setUpazilaUncertain(!confident)
     })
     return () => {
       cancelled = true
@@ -116,6 +120,9 @@ export function StepLocation({ form, errors, update }: StepProps) {
               </p>
             )}
             {areaNote && <p className="mt-0.5 font-normal">{t('location.matched', { area: areaNote })}</p>}
+            {upazilaUncertain && (
+              <p className="mt-1 font-normal">{t('location.upazilaUncertain')}</p>
+            )}
           </div>
         )}
       </div>

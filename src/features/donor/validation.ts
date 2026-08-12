@@ -56,18 +56,31 @@ export const MIN_WEIGHT_KG = 45
 export const COOLDOWN_DAYS = 120
 
 /**
- * Bangladeshi mobile numbers.
+ * Phone numbers, stored as plain international digits.
  *
- * Accepts what people actually type: 01712345678, +8801712345678,
- * 8801712345678, and any of those with spaces or dashes. All operator prefixes
- * are 013 to 019.
+ * Bangladesh is checked strictly, because we know the shape: 88 followed by
+ * 01[3-9] and eight more digits. Everything else is checked loosely, since a
+ * donor visiting from Riyadh or a relative in London asking on someone's
+ * behalf is a real case and inventing per-country rules we cannot test would
+ * reject valid numbers.
+ *
+ * Still accepts what people type by hand: 01712345678, +8801712345678, or any
+ * of those with spaces and dashes.
  */
-const PHONE_PATTERN = /^(?:\+?88)?(01[3-9]\d{8})$/
+const BD_PATTERN = /^(?:\+?88)?(01[3-9]\d{8})$/
 
 export function normalisePhone(input: string): string | null {
-  const cleaned = input.replace(/[\s\-()]/g, '')
-  const match = PHONE_PATTERN.exec(cleaned)
-  return match ? `88${match[1]}` : null
+  const cleaned = input.replace(/[\s\-()+]/g, '')
+  if (!cleaned) return null
+
+  const bd = BD_PATTERN.exec(cleaned)
+  if (bd) return `88${bd[1]}`
+
+  // A non-Bangladeshi number, already in international form from PhoneInput.
+  // 8 to 15 digits covers every country's international format.
+  if (/^\d{8,15}$/.test(cleaned) && !cleaned.startsWith('880')) return cleaned
+
+  return null
 }
 
 /** 8801712345678 -> 01712-345678, which is how it is read aloud here. */

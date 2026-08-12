@@ -14,11 +14,13 @@
 --
 -- Before running this file, replace the two placeholders at the bottom:
 --   YOUR_PROJECT_REF   the subdomain of your Supabase URL
---   YOUR_SERVICE_KEY   Project Settings -> API -> service_role
+--   YOUR_DRAIN_SECRET  the same value you put in the DRAIN_SECRET Edge
+--                      Function secret
 --
--- The service_role key bypasses every security rule in 0009. It belongs here
--- and in Supabase Edge Function secrets. It must never appear in the repo, in
--- a VITE_ variable, or anywhere a browser can reach.
+-- Note that this is DRAIN_SECRET, not the service_role key. The drain endpoint
+-- authorises on that header and nothing else, so there is no reason to put a
+-- database key in a cron definition where it would sit in cron.job forever,
+-- readable by anyone who can query it.
 
 create extension if not exists pg_cron;
 create extension if not exists pg_net;
@@ -42,7 +44,7 @@ select cron.schedule(
       url := 'https://YOUR_PROJECT_REF.supabase.co/functions/v1/drain-email-queue',
       headers := jsonb_build_object(
         'Content-Type', 'application/json',
-        'Authorization', 'Bearer YOUR_SERVICE_KEY'
+        'x-drain-secret', 'YOUR_DRAIN_SECRET'
       ),
       body := '{}'::jsonb
     );
@@ -51,6 +53,11 @@ select cron.schedule(
 
 -- Expire requests nobody could fill, so the landing page counters and the
 -- admin queue stay honest. Runs hourly.
+--
+-- Redundant since 0019: drain-email-queue calls expire_old_requests() on every
+-- run, so this happens whichever drainer you use. Harmless to keep — the sweep
+-- is idempotent — and it means expiry survives even if the drain endpoint is
+-- unreachable for a while.
 do $$
 begin
   perform cron.unschedule('expire-old-requests');

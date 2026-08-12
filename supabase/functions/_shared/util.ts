@@ -141,3 +141,68 @@ export function settingString(settings: Record<string, unknown>, key: string, fa
   const value = settings[key]
   return typeof value === 'string' && value.length > 0 ? value : fallback
 }
+
+/**
+ * The gate on the drain endpoint.
+ *
+ * drain-email-queue is the one function nobody's browser should ever call: it
+ * opens an SMTP connection and sends real mail. Something outside Supabase has
+ * to trigger it on a schedule, and that something needs a credential.
+ *
+ * The obvious credential is the service_role key, and it is the wrong one. A
+ * GitHub Actions secret is readable by every workflow in the repository and by
+ * anyone who can push one, and service_role bypasses every RLS policy in the
+ * database. That trades the whole donor table for a cron job.
+ *
+ * So the scheduler gets a secret that does one thing: prove it may ask for a
+ * drain. It grants no database access, it is not a key to anything else, and
+ * rotating it is changing one string in two places. If it leaks, the worst
+ * anyone can do is cause the queue to be drained, which is what it is for.
+ *
+ * Fails closed. No DRAIN_SECRET configured means no caller is authorised,
+ * rather than every caller being authorised.
+ */
+export async function drainSecretCheck(req: Request): Promise<Response | null> {
+  const expected = Deno.env.get('DRAIN_SECRET')?.trim()
+
+  if (!expected) {
+    // Setup is incomplete rather than under attack. Say so distinctly, so the
+    // caller can tell "finish the setup" from "your secret is wrong".
+    return json(
+      {
+        error: 'not_configured',
+        note: 'DRAIN_SECRET is not set in Supabase Edge Function secrets. See README section 3d.',
+      },
+      500,
+    )
+  }
+
+  const presented = req.headers.get('x-drain-secret')?.trim()
+  if (!presented || !(await constantTimeEquals(presented, expected))) {
+    // Deliberately terse. An unauthorised caller learns nothing about why.
+    return json({ error: 'unauthorized' }, 401)
+  }
+
+  return null
+}
+
+/**
+ * Comparison whose duration does not depend on where two strings differ.
+ *
+ * Hashing first means the loop always runs over 32 bytes whatever the inputs
+ * were, so length is not leaked either. A 256-bit random secret is not
+ * realistically attackable by timing over the internet, but this is four lines
+ * and removes the question.
+ */
+async function constantTimeEquals(a: string, b: string): Promise<boolean> {
+  const encoder = new TextEncoder()
+  const [left, right] = await Promise.all([
+    crypto.subtle.digest('SHA-256', encoder.encode(a)),
+    crypto.subtle.digest('SHA-256', encoder.encode(b)),
+  ])
+  const x = new Uint8Array(left)
+  const y = new Uint8Array(right)
+  let diff = 0
+  for (let i = 0; i < x.length; i++) diff |= (x[i] ?? 0) ^ (y[i] ?? 0)
+  return diff === 0
+}

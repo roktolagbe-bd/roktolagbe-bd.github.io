@@ -1,6 +1,7 @@
 import { SMTPClient } from 'https://deno.land/x/denomailer@1.6.0/mod.ts'
 import {
   adminClient,
+  drainSecretCheck,
   json,
   preflight,
   readSettings,
@@ -11,9 +12,13 @@ import {
 /**
  * Sends whatever is due in email_queue, slowly and within the daily cap.
  *
- * Called on a schedule: either pg_cron (migration 0010) or the GitHub Actions
- * workflow. Both are fine; running both means every email gets two attempts at
- * once, so pick one.
+ * Called on a schedule: either pg_cron (supabase/optional/cron_schedule.sql)
+ * or the GitHub Actions workflow. Both are fine; running both means every
+ * email gets two attempts at once, so pick one.
+ *
+ * Whichever calls it must present DRAIN_SECRET in an x-drain-secret header.
+ * That secret only proves the caller may ask for a drain; it is not a database
+ * credential and grants nothing else.
  *
  * Free Gmail allows roughly 500 recipients a day. daily_email_cap defaults to
  * 400, which leaves headroom for the account being used for anything else.
@@ -40,6 +45,12 @@ type QueueRow = {
 Deno.serve(async (req) => {
   const cors = preflight(req)
   if (cors) return cors
+
+  // Before anything else, and before any work that costs money or sends mail.
+  // This endpoint is not for browsers: the only thing that should reach it is
+  // whatever runs the schedule, holding DRAIN_SECRET.
+  const denied = await drainSecretCheck(req)
+  if (denied) return denied
 
   const gmailUser = Deno.env.get('GMAIL_USER')
   const gmailPassword = Deno.env.get('GMAIL_APP_PASSWORD')

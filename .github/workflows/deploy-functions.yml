@@ -83,13 +83,33 @@ jobs:
           # us off `supabase link`, which wants a database password we have no
           # reason to hand a CI runner.
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
         run: |
           # With no function name, the CLI deploys all of them, reading
           # per-function settings (verify_jwt and so on) from supabase/config.toml.
           # Directories starting with an underscore are treated as shared code
           # rather than functions, which is why supabase/functions/_shared is
           # bundled into each one instead of being deployed as its own.
-          supabase functions deploy --project-ref "${{ secrets.SUPABASE_PROJECT_REF }}"
+          #
+          # Retried because Supabase's API sits behind Cloudflare and returns a
+          # 502 often enough to matter. Their own error body says
+          # "retryable": true, "retry_after": 60, so a failure here usually
+          # means "ask again shortly" rather than anything about this code.
+          # Deploying is idempotent: unchanged functions are skipped with
+          # "No change found", so a retry costs seconds, not correctness.
+          for attempt in 1 2 3; do
+            if supabase functions deploy --project-ref "$PROJECT_REF"; then
+              echo "Deployed on attempt $attempt."
+              exit 0
+            fi
+            if [ "$attempt" -lt 3 ]; then
+              echo "::warning::Deploy attempt $attempt failed. Waiting 60s before retrying."
+              sleep 60
+            fi
+          done
+
+          echo "::error::Three deploy attempts failed. This is more than a transient 502; check the log above."
+          exit 1
 
       - name: Say what is now live
         if: success()

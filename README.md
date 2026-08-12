@@ -197,15 +197,27 @@ service_role key bypasses every privacy rule in the database.
 
 ### 3c. Deploy the functions
 
-Install the Supabase CLI (https://supabase.com/docs/guides/cli), then:
+`.github/workflows/deploy-functions.yml` does this on every push to `main`
+that touches `supabase/functions/`. Give it two repository secrets under
+**Settings** → **Secrets and variables** → **Actions** and you never have to
+think about it again:
+
+| Name | Where the value comes from |
+| --- | --- |
+| `SUPABASE_ACCESS_TOKEN` | https://supabase.com/dashboard/account/tokens → Generate new token. Account-level, shown once. |
+| `SUPABASE_PROJECT_REF` | Project Settings → General → Reference ID. Same as the subdomain in `https://<ref>.supabase.co`. |
+
+Neither the Gmail App Password nor the service_role key goes in a GitHub
+secret. Those are Edge Function secrets, set in the Supabase dashboard where
+only the running function can read them.
+
+To deploy by hand instead, install the Supabase CLI
+(https://supabase.com/docs/guides/cli) and run:
 
 ```bash
 supabase login
 supabase link --project-ref YOUR_PROJECT_REF
-supabase functions deploy send-request-emails
-supabase functions deploy drain-email-queue
-supabase functions deploy respond
-supabase functions deploy geocode
+supabase functions deploy          # all of them
 ```
 
 > **Deploy `geocode` even if you never turn email on.** It is what turns
@@ -213,6 +225,11 @@ supabase functions deploy geocode
 > central Dhaka right. Without it, someone in Gulshan is told they are in
 > Keraniganj's district rather than their neighbourhood: not wrong, just
 > vaguer. It needs no secrets and no Gmail.
+
+> **The workflow deploys functions, not migrations.** A function that calls a
+> new RPC will fail until that migration is run in the SQL editor. Migrations
+> stay manual on purpose: applying schema changes to a live database from CI,
+> unattended, is a good way to lose data on the day a migration is wrong.
 
 ### 3d. Drain the queue on a schedule
 

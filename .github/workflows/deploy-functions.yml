@@ -1,0 +1,107 @@
+name: Deploy Edge Functions
+
+# The database half of the project, deployed the same way the site is.
+#
+# Until now every Edge Function had to be pushed by hand from a laptop with the
+# Supabase CLI installed. That is how supabase/functions/geocode sat in the
+# repository, correct and merged, while the live site still fell back to a
+# district name: the code was deployed, the function was not. This closes that
+# gap, so "merged to main" and "running in production" mean the same thing for
+# functions as they already do for the site.
+#
+# Two secrets are needed. Both are set under
+#   Settings -> Secrets and variables -> Actions -> New repository secret
+#
+#   SUPABASE_ACCESS_TOKEN   A personal access token, generated at
+#                           https://supabase.com/dashboard/account/tokens
+#                           It is account-level, not project-level, and it is
+#                           shown exactly once.
+#
+#   SUPABASE_PROJECT_REF    The project's Reference ID, under
+#                           Project Settings -> General. It is also the
+#                           subdomain of the project URL:
+#                           https://<ref>.supabase.co
+#                           drain-queue.yml already uses this one, so it may
+#                           exist already.
+#
+# GMAIL_USER and GMAIL_APP_PASSWORD deliberately do NOT belong here. They are
+# Edge Function secrets, set in the Supabase dashboard under Project Settings
+# -> Edge Functions -> Secrets, where only the running function can read them.
+# A GitHub secret is readable by every workflow in the repository and by anyone
+# who can push one, and that App Password can send mail as the project. Same
+# reasoning for the service_role key, which bypasses every privacy rule in the
+# database.
+
+on:
+  push:
+    branches: [main]
+    # Only when there is actually something to deploy. A change to the React
+    # app has no bearing on what runs in Deno, and redeploying anyway would
+    # spend minutes and churn the functions for nothing.
+    paths:
+      - 'supabase/functions/**'
+      - 'supabase/config.toml'
+      - '.github/workflows/deploy-functions.yml'
+  workflow_dispatch:
+
+# Never two deploys at once, and never cancel one in flight: a half-applied
+# deploy is worse than a slow one.
+concurrency:
+  group: supabase-functions
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Check the secrets exist
+        env:
+          TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+        run: |
+          missing=""
+          [ -n "$TOKEN" ] || missing="$missing SUPABASE_ACCESS_TOKEN"
+          [ -n "$REF" ] || missing="$missing SUPABASE_PROJECT_REF"
+          if [ -n "$missing" ]; then
+            echo "Missing repository secret(s):$missing"
+            echo "See the comment at the top of this file for where each value comes from."
+            exit 1
+          fi
+
+      - name: Deploy every function
+        env:
+          # The CLI reads this for authentication. Passing --project-ref keeps
+          # us off `supabase link`, which wants a database password we have no
+          # reason to hand a CI runner.
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          # With no function name, the CLI deploys all of them, reading
+          # per-function settings (verify_jwt and so on) from supabase/config.toml.
+          # Directories starting with an underscore are treated as shared code
+          # rather than functions, which is why supabase/functions/_shared is
+          # bundled into each one instead of being deployed as its own.
+          supabase functions deploy --project-ref "${{ secrets.SUPABASE_PROJECT_REF }}"
+
+      - name: Say what is now live
+        if: success()
+        run: |
+          echo "### Edge Functions deployed" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          for dir in supabase/functions/*/; do
+            name=$(basename "$dir")
+            case "$name" in _*) continue ;; esac
+            echo "$name" >> $GITHUB_STEP_SUMMARY
+          done
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Migrations are NOT applied by this workflow. A function that needs a" >> $GITHUB_STEP_SUMMARY
+          echo "new RPC will fail until its migration is run in the SQL editor." >> $GITHUB_STEP_SUMMARY

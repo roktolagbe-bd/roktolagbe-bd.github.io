@@ -3,7 +3,8 @@ import { Field, Input, Select } from '@/components/form/Field'
 import { Button } from '@/components/Button'
 import { useI18n, type TKey } from '@/lib/i18n'
 import { useGeolocation, isInBangladesh, type Coords } from '@/lib/geolocation'
-import { locateArea, upazilaIsConfident, upazilasOf, usePlaces } from '@/lib/places'
+import { locateArea, usePlaces } from '@/lib/places'
+import { MAX_AREA_NAME, looksLikeStreetAddress } from '../validation'
 import type { StepProps } from '../types'
 
 /* Leaflet is about 45kb gzipped. It loads when this step is reached, not
@@ -19,12 +20,16 @@ const FAILURE_MESSAGE: Record<string, TKey> = {
 
 export function StepLocation({ form, errors, update }: StepProps) {
   const { t, n, lang } = useI18n()
-  const { districts, upazilas, loading, failed } = usePlaces()
+  const { districts, loading, failed } = usePlaces()
   const geo = useGeolocation()
   const [showMap, setShowMap] = useState(Boolean(form.coords))
   const [areaNote, setAreaNote] = useState<string | null>(null)
   const [outsideCountry, setOutsideCountry] = useState(false)
-  const [upazilaUncertain, setUpazilaUncertain] = useState(false)
+
+  // Whatever we last put in the area box ourselves. Used to tell "the user has
+  // not touched this" from "the user typed something", so moving the pin can
+  // refresh a name we filled in without overwriting one they chose.
+  const [autoFilled, setAutoFilled] = useState<string | null>(null)
 
   const label = (en: string, bn: string) => (lang === 'bn' ? bn : en)
 
@@ -49,23 +54,27 @@ export function StepLocation({ form, errors, update }: StepProps) {
     void locateArea(coords).then((area) => {
       if (cancelled || !area) return
 
-      // The district is reliable. The upazila is only a nearest-centroid guess,
-      // and in Dhaka city there is no correct one to guess, so it is filled in
-      // only when the centroid is genuinely close. Otherwise it is left for the
-      // user, with a note saying why.
-      const confident = upazilaIsConfident(area)
-      update({
-        districtId: area.district_id,
-        upazilaId: confident ? (area.upazila_id ?? null) : null,
-      })
+      // The upazila is no longer asked for or set here. The database derives it
+      // from the point on insert, under the same confidence rule, so nobody has
+      // to answer a question that has no answer in half the country.
+      const patch: Partial<typeof form> = { districtId: area.district_id }
+
+      // The name OSM gave us, which is the whole reason the geocoder exists.
+      // Only overwrite the box when it is empty or still holds our own last
+      // suggestion: a name the donor typed themselves always wins.
+      const suggested = area.area_label?.trim() || null
+      const untouched = !form.areaName.trim() || form.areaName.trim() === autoFilled
+      if (suggested && untouched) {
+        patch.areaName = suggested
+        setAutoFilled(suggested)
+      }
+
+      update(patch)
+
       // "Gulshan, Dhaka" when OSM knew it, plain "Dhaka" when it did not.
       setAreaNote(
-        [area.area_label, label(area.district_en, area.district_bn)]
-          .filter(Boolean)
-          .join(', '),
+        [suggested, label(area.district_en, area.district_bn)].filter(Boolean).join(', '),
       )
-      // Only nag about the upazila when we have no better name to show.
-      setUpazilaUncertain(!confident && !area.area_label)
     })
     return () => {
       cancelled = true
@@ -79,8 +88,6 @@ export function StepLocation({ form, errors, update }: StepProps) {
     geo.setManual(coords)
     setAreaNote(null)
   }
-
-  const districtUpazilas = upazilasOf(upazilas, form.districtId)
 
   return (
     <div className="grid gap-5">
@@ -126,9 +133,6 @@ export function StepLocation({ form, errors, update }: StepProps) {
               </p>
             )}
             {areaNote && <p className="mt-0.5 font-normal">{t('location.matched', { area: areaNote })}</p>}
-            {upazilaUncertain && (
-              <p className="mt-1 font-normal">{t('location.upazilaUncertain')}</p>
-            )}
           </div>
         )}
       </div>
@@ -147,11 +151,7 @@ export function StepLocation({ form, errors, update }: StepProps) {
             invalid={invalid}
             value={form.districtId ?? ''}
             disabled={loading && districts.length === 0}
-            onChange={(e) => {
-              const value = e.target.value ? Number(e.target.value) : null
-              // Changing district makes the old upazila meaningless.
-              update({ districtId: value, upazilaId: null })
-            }}
+            onChange={(e) => update({ districtId: e.target.value ? Number(e.target.value) : null })}
           >
             <option value="">
               {loading && districts.length === 0 ? t('common.loading') : t('form.choose')}
@@ -165,27 +165,34 @@ export function StepLocation({ form, errors, update }: StepProps) {
         )}
       </Field>
 
-      <Field label={t('form.upazila')} error={errors.upazilaId ? t(errors.upazilaId) : null}>
+      {/* The public half of an address. Filled in from the geocoder when
+          "locate me" worked, so most people read it rather than write it. */}
+      <Field
+        label={t('form.area')}
+        hint={t('form.area.hint')}
+        error={errors.areaName ? t(errors.areaName) : null}
+      >
         {({ id, describedBy, invalid }) => (
-          <Select
+          <Input
             id={id}
             aria-describedby={describedBy}
             invalid={invalid}
-            value={form.upazilaId ?? ''}
-            disabled={!form.districtId}
-            onChange={(e) => update({ upazilaId: e.target.value ? Number(e.target.value) : null })}
-          >
-            <option value="">
-              {form.districtId ? t('form.choose') : t('form.chooseDistrictFirst')}
-            </option>
-            {districtUpazilas.map((u) => (
-              <option key={u.id} value={u.id}>
-                {label(u.name_en, u.name_bn)}
-              </option>
-            ))}
-          </Select>
+            value={form.areaName}
+            maxLength={MAX_AREA_NAME}
+            placeholder={t('form.area.placeholder')}
+            onChange={(e) => update({ areaName: e.target.value })}
+            autoComplete="address-level3"
+          />
         )}
       </Field>
+
+      {/* Not an error, and not blocking. Someone pasting their full address
+          into a public field should be told once, then trusted. */}
+      {looksLikeStreetAddress(form.areaName) && (
+        <p className="-mt-3 rounded-md border-2 border-line bg-gada-fill px-3 py-2 text-sm font-bold text-tile-ink">
+          {t('form.area.looksLikeAddress')}
+        </p>
+      )}
 
       <Field
         label={t('form.address')}

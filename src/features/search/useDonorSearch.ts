@@ -11,6 +11,8 @@ export type DonorResult = {
   district_id: number | null
   district_en: string | null
   district_bn: string | null
+  /** The donor's own neighbourhood name. Free text, one language, may be null. */
+  area_name: string | null
   upazila_id: number | null
   upazila_en: string | null
   upazila_bn: string | null

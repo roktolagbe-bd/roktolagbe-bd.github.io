@@ -91,9 +91,13 @@
   "form.facebook": "Facebook profile",
   "form.facebook.hint": "Helps the person asking know who you are.",
   "form.district": "District",
+  "form.area": "Area",
+  "form.area.hint": "Such as Gulshan 1, Dhanmondi, Uttara Sector 7. Everyone can see this.",
+  "form.area.placeholder": "Gulshan 1",
+  "form.area.looksLikeAddress": "That looks more like a street address than an area. Keep the area short — put the house and road in the box below, where nobody sees it.",
   "form.upazila": "Upazila",
-  "form.address": "Area or address",
-  "form.address.hint": "Shown to one person after you say yes. Never shown publicly.",
+  "form.address": "Detailed address",
+  "form.address.hint": "House, road, landmark. Shown to one person only, after you say yes to their request. Never shown publicly.",
   "form.dob": "Date of birth",
   "form.dob.hint": "You need to be between {min} and {max} to donate.",
   "form.dob.ok": "You are {age}. You can donate.",
@@ -416,5 +420,5 @@
   "privacy.check.body": "All the code is open. Here is exactly where the rules are written.",
   "privacy.contact": "Questions? Write to",
   "form.countryCode": "Country code",
-  "location.upazilaUncertain": "We could not tell which upazila. Inside Dhaka city there are none, so pick one below or leave it blank."
+  "validation.areaTooLong": "Keep the area name to 60 characters."
 }

@@ -13,7 +13,9 @@ export type DonorForm = {
   facebookUrl: string
 
   districtId: number | null
-  upazilaId: number | null
+  /** PUBLIC. The neighbourhood, e.g. "গুলশান-১". Auto-filled, editable. */
+  areaName: string
+  /** PRIVATE. House and road. Released to one accepted requester, never shown. */
   addressLine: string
   coords: Coords | null
 
@@ -35,7 +37,7 @@ export const emptyDonorForm: DonorForm = {
   email: '',
   facebookUrl: '',
   districtId: null,
-  upazilaId: null,
+  areaName: '',
   addressLine: '',
   coords: null,
   dateOfBirth: '',
@@ -50,6 +52,35 @@ export type Errors = Partial<Record<keyof DonorForm, TKey>>
 
 /* Eligibility thresholds used across Bangladesh. The checker page and this
    form must agree, so they read from here. */
+/**
+ * How long a public area name may be. Matches the check constraint on
+ * donors.area_name.
+ *
+ * The number is doing privacy work, not tidiness work. "উত্তরা সেক্টর ১৩" is
+ * fifteen characters; a street address does not fit. Keeping the public field
+ * too small to hold a doorstep is a cheaper guarantee than trusting everyone
+ * to read the hint under it.
+ */
+export const MAX_AREA_NAME = 60
+
+/**
+ * Whether a public area name looks like somebody's front door.
+ *
+ * Not a blocker, because it cannot be one: "সেক্টর ১৩" and "বাড়ি ১৩" differ by
+ * a word, and false positives on a required-feeling field are worse than the
+ * thing they prevent. This drives a warning the user can ignore.
+ *
+ * A run of four or more digits is the signal. Area names carry small numbers
+ * (Gulshan 1, Sector 13, Mirpur 10); holding numbers and postcodes do not.
+ */
+export function looksLikeStreetAddress(value: string): boolean {
+  const text = value.trim()
+  if (!text) return false
+  // Bangla digits are separate code points and would otherwise slip past \d.
+  const ascii = text.replace(/[০-৯]/g, (d) => String('০১২৩৪৫৬৭৮৯'.indexOf(d)))
+  return /\d{4,}/.test(ascii) || /,.*\d/.test(ascii)
+}
+
 export const MIN_AGE = 18
 export const MAX_AGE = 65
 export const MIN_WEIGHT_KG = 45
@@ -152,6 +183,7 @@ export function validateStep(step: number, form: DonorForm): Errors {
 
   if (step === 2) {
     if (!form.districtId) errors.districtId = 'validation.districtRequired'
+    if (form.areaName.trim().length > MAX_AREA_NAME) errors.areaName = 'validation.areaTooLong'
   }
 
   if (step === 3) {

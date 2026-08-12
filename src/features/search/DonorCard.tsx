@@ -15,8 +15,11 @@ export function DonorCard({ donor }: { donor: DonorResult }) {
   const { t, n, lang } = useI18n()
   const { letters, sign } = splitGroup(donor.blood_group)
 
+  // The donor's own name for where they are, when they gave one. It is free
+  // text in whatever language they typed, so it does not switch with the
+  // toggle; the upazila behind it does, and stands in when there is no name.
   const area = [
-    lang === 'bn' ? donor.upazila_bn : donor.upazila_en,
+    donor.area_name || (lang === 'bn' ? donor.upazila_bn : donor.upazila_en),
     lang === 'bn' ? donor.district_bn : donor.district_en,
   ]
     .filter(Boolean)

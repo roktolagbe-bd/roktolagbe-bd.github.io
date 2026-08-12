@@ -1,24 +1,42 @@
 name: Drain email queue
 
-# DISABLED BY DEFAULT.
+# ENABLED. This is the project's only queue drainer.
 #
-# This is the alternative to pg_cron (supabase/migrations/0010_cron.sql).
-# Something has to empty email_queue on a schedule, but only ONE of the two
-# should do it, or every email gets two attempts at once.
+# The alternative is pg_cron (supabase/optional/cron_schedule.sql), which is
+# NOT part of the migrations and is not applied by setup.sql. Do not schedule
+# it as well: two drainers means every email gets two attempts at once. To
+# check nothing is scheduled in the database:
 #
-# To use this instead of pg_cron:
-#   1. Uncomment the `schedule` block below.
-#   2. Add two repository secrets under Settings -> Secrets and variables ->
-#      Actions:
-#        SUPABASE_PROJECT_REF   the subdomain of your Supabase URL
-#        SUPABASE_SERVICE_ROLE_KEY
+#   select jobname, schedule from cron.job;
+#
+# An error saying the cron schema does not exist is the clearest possible
+# "nothing is scheduled".
+#
+# Needs two repository secrets under Settings -> Secrets and variables ->
+# Actions:
+#   SUPABASE_PROJECT_REF        the subdomain of your Supabase URL
+#   SUPABASE_SERVICE_ROLE_KEY   Project Settings -> API -> service_role
 #
 # The service_role key bypasses every privacy rule in the database. It belongs
 # only in secrets, never in a file and never in a VITE_ variable.
 
 on:
-  # schedule:
-  #   - cron: '*/10 * * * *'
+  schedule:
+    # Every five minutes, which is the shortest interval GitHub accepts.
+    #
+    # Two things to know about this, because they are properties of GitHub
+    # rather than of this workflow:
+    #
+    #   Scheduled runs are best-effort. GitHub delays them under load, and the
+    #   shortest intervals are hit hardest, so ten to fifteen minutes late is
+    #   normal and a skipped run happens. Nothing is lost when one is missed:
+    #   the queue is a queue, and the next run takes whatever is due.
+    #
+    #   GitHub disables scheduled workflows in public repositories after 60
+    #   days with no commits. Mail would stop going out silently. If this
+    #   repository ever goes quiet for two months, re-enable it in the Actions
+    #   tab, or move to pg_cron, which has neither limitation.
+    - cron: '*/5 * * * *'
   workflow_dispatch:
 
 concurrency:
@@ -53,4 +71,20 @@ jobs:
           # contains an email address.
           echo "HTTP $status"
           echo "$body"
-          [ "$status" = "200" ] || exit 1
+
+          if [ "$status" = "200" ]; then
+            exit 0
+          fi
+
+          # Gmail not set up yet is an expected state, not a broken run. This
+          # workflow fires every five minutes; failing it before README section
+          # 3 is finished would mean a failure notification every five minutes
+          # for as long as it takes, which trains everyone to ignore the ones
+          # that matter. Warn instead, and start working on its own the moment
+          # the secrets are in place.
+          if echo "$body" | grep -q '"not_configured"'; then
+            echo "::warning::GMAIL_USER and GMAIL_APP_PASSWORD are not set in Supabase Edge Function secrets, so nothing was sent. See README section 3b."
+            exit 0
+          fi
+
+          exit 1

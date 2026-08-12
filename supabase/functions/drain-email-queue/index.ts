@@ -57,6 +57,26 @@ Deno.serve(async (req) => {
   const supabase = adminClient()
 
   try {
+    // ---- Housekeeping, before anything that can return early -------------
+    // Here rather than at the end because the common case by far is "nothing
+    // due", which returns above the send loop. Expiry that only ran on busy
+    // minutes would almost never run at all.
+    //
+    // It lives in the drainer so it does not depend on which drainer is in
+    // use: pg_cron schedules its own hourly sweep, the Actions workflow has no
+    // way to schedule one, and without this a project using the workflow never
+    // expires anything. Idempotent, so doing it on both paths is harmless.
+    //
+    // Its failure must never fail a drain: sending mail is the job, tidying up
+    // is not.
+    let expired = 0
+    try {
+      const { data } = await supabase.rpc('expire_old_requests')
+      expired = typeof data === 'number' ? data : 0
+    } catch (err) {
+      console.error('expire_old_requests failed', err)
+    }
+
     const settings = await readSettings(supabase)
     const dailyCap = settingInt(settings, 'daily_email_cap', 400)
     const senderName = settingString(settings, 'sender_name', 'রক্ত লাগবে')
@@ -65,7 +85,7 @@ Deno.serve(async (req) => {
     const { data: remainingRaw } = await supabase.rpc('email_quota_remaining')
     const remaining = typeof remainingRaw === 'number' ? remainingRaw : dailyCap
     if (remaining <= 0) {
-      return json({ ok: true, sent: 0, failed: 0, note: 'Daily cap reached.' })
+      return json({ ok: true, sent: 0, failed: 0, expired, note: 'Daily cap reached.' })
     }
 
     const batch = Math.min(BATCH_SIZE, remaining)
@@ -81,7 +101,7 @@ Deno.serve(async (req) => {
     if (dueError) throw dueError
     const rows = (due ?? []) as QueueRow[]
     if (rows.length === 0) {
-      return json({ ok: true, sent: 0, failed: 0, note: 'Nothing due.' })
+      return json({ ok: true, sent: 0, failed: 0, expired, note: 'Nothing due.' })
     }
 
     // ---- One SMTP connection for the whole batch --------------------------
@@ -167,7 +187,7 @@ Deno.serve(async (req) => {
       await client.close()
     }
 
-    return json({ ok: true, sent, failed, considered: rows.length, remaining_before: remaining })
+    return json({ ok: true, sent, failed, expired, considered: rows.length, remaining_before: remaining })
   } catch (err) {
     console.error('drain-email-queue failed', err)
     return json({ error: 'internal_error' }, 500)

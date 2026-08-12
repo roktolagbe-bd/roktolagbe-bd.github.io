@@ -24,6 +24,12 @@ create unique index if not exists email_queue_request_kind_idx
 -- ---------------------------------------------------------------------------
 -- Hashing a caller's IP
 --
+-- SUPERSEDED BY 0016. Do not copy this approach. `alter database postgres set`
+-- is rejected on hosted Supabase, and the fallback below silently produced
+-- hashes anyone could reproduce from this file. Both the salt and the hashing
+-- now live in the Edge Function; 0016 drops hash_ip entirely. Kept here only
+-- because migrations are history and rewriting them would break replay.
+--
 -- Raw addresses are never stored. The Edge Function passes the address in, and
 -- this salts and hashes it so that a leak of donors or blood_requests cannot
 -- be used to work out who was searching for blood.

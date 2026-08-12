@@ -188,6 +188,7 @@ In the Supabase dashboard: **Project Settings** → **Edge Functions** → **Sec
 | --- | --- |
 | `GMAIL_USER` | `roktolagbe.bd@gmail.com` |
 | `GMAIL_APP_PASSWORD` | the 16 characters from step 3a |
+| `IP_SALT` | a long random string you generate yourself — see 3f |
 
 `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are provided automatically.
 
@@ -255,11 +256,36 @@ Nothing is lost by leaving it off while you test.
 
 ### 3f. Set the IP salt
 
-So that hashed IP addresses cannot be reversed:
+Rate limiting is keyed on a hash of the caller's address. The salt is what
+stops that hash being reversed, and it is an **Edge Function secret**, set in
+the same place as the Gmail ones: **Project Settings** → **Edge Functions** →
+**Secrets**.
 
-```sql
-alter database postgres set app.ip_salt = 'paste a long random string here';
+| Name | Value |
+| --- | --- |
+| `IP_SALT` | at least 16 characters, 32 or more preferred |
+
+Generate one and keep a copy somewhere safe:
+
+```bash
+openssl rand -base64 32
 ```
+
+> **Do not try to set this in the database.** Earlier versions of this file
+> said `alter database postgres set app.ip_salt = '...'`. That cannot work on
+> hosted Supabase at any plan level: the `postgres` role there is not the
+> database owner, so the statement fails with
+> `ERROR: 42501: permission denied to set parameter`. It is a property of the
+> platform, not a quota. The salt lives in the Edge Function, which is also
+> where the hashing now happens, so the raw address never reaches Postgres at
+> all.
+
+**If `IP_SALT` is unset, nothing breaks and nothing throws.** Requests are
+still created and emails still queue. What you lose is the IP rate limit: the
+function logs an error, sends no hash, and `check_and_record_ip` returns
+"allowed" because it has nothing to count. The honeypot field and the
+time-on-page check still apply. Changing the salt later is safe — it only
+resets the current hour's counters.
 
 ### How to test it safely
 

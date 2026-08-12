@@ -58,8 +58,14 @@ export function StepLocation({ form, errors, update }: StepProps) {
         districtId: area.district_id,
         upazilaId: confident ? (area.upazila_id ?? null) : null,
       })
-      setAreaNote(label(area.district_en, area.district_bn))
-      setUpazilaUncertain(!confident)
+      // "Gulshan, Dhaka" when OSM knew it, plain "Dhaka" when it did not.
+      setAreaNote(
+        [area.area_label, label(area.district_en, area.district_bn)]
+          .filter(Boolean)
+          .join(', '),
+      )
+      // Only nag about the upazila when we have no better name to show.
+      setUpazilaUncertain(!confident && !area.area_label)
     })
     return () => {
       cancelled = true

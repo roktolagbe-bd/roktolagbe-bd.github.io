@@ -205,7 +205,14 @@ supabase link --project-ref YOUR_PROJECT_REF
 supabase functions deploy send-request-emails
 supabase functions deploy drain-email-queue
 supabase functions deploy respond
+supabase functions deploy geocode
 ```
+
+> **Deploy `geocode` even if you never turn email on.** It is what turns
+> coordinates into a real place name, and it is the only thing that gets
+> central Dhaka right. Without it, someone in Gulshan is told they are in
+> Keraniganj's district rather than their neighbourhood: not wrong, just
+> vaguer. It needs no secrets and no Gmail.
 
 ### 3d. Drain the queue on a schedule
 

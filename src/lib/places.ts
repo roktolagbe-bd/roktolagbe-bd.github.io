@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { getSupabase } from './supabase'
+import { callFunction } from './functions'
 import { cacheGet, cacheSet } from './cache'
 import type { Coords } from './geolocation'
 
@@ -39,6 +40,12 @@ export type Area = {
   upazila_bn: string | null
   district_distance_km: number
   upazila_distance_km: number | null
+  /**
+   * A real place name from OpenStreetMap, when the geocode function could
+   * supply one: "Gulshan", "Dhanmondi", "Savar". This is the answer the
+   * centroid lookup structurally cannot give inside a city.
+   */
+  area_label?: string | null
 }
 
 /* Places change roughly never, and someone registering on a train should not
@@ -115,29 +122,61 @@ export function upazilasOf(upazilas: Upazila[], districtId: number | null): Upaz
 }
 
 /**
- * Coordinates to a district and upazila, using the nearest seeded centroid.
+ * Coordinates to a place.
  *
- * Deliberately not Nominatim. See supabase/migrations/0011_locate_area.sql for
- * why: no third party learns where someone is looking for blood, there is no
- * rate limit to trip during a rush, and it answers instantly.
+ * Two sources, used together rather than instead of each other:
  *
- * The answer is a suggestion. The caller pre-fills the dropdowns with it and
- * leaves the user free to change them.
+ *   The centroid lookup in Postgres always runs. It is instant, offline, and
+ *   private, and it gives the district and upazila IDs the rest of the system
+ *   actually stores. Outside the cities it is right.
+ *
+ *   The geocode function runs alongside it and supplies a real place name from
+ *   OpenStreetMap. This is what fixes central Dhaka, where there is no upazila
+ *   to find and nearest-centroid answered "Keraniganj" for a point in Gulshan.
+ *
+ * They race in parallel and the geocoder is never allowed to hold anything up:
+ * if it is slow, throttled, undeployed or offline, the centroid answer stands
+ * on its own and the user sees a district instead of a neighbourhood. That is
+ * a smaller name, not a wrong one.
  */
 export async function locateArea(coords: Coords): Promise<Area | null> {
   const pending = getSupabase()
   if (!pending) return null
 
-  try {
-    const supabase = await pending
-    const { data, error } = await supabase
-      .rpc('locate_area', { in_lat: coords.lat, in_lng: coords.lng })
-      .maybeSingle()
-    if (error) throw error
-    return (data as Area | null) ?? null
-  } catch {
-    return null
+  const centroid = (async () => {
+    try {
+      const supabase = await pending
+      const { data, error } = await supabase
+        .rpc('locate_area', { in_lat: coords.lat, in_lng: coords.lng })
+        .maybeSingle()
+      if (error) throw error
+      return (data as Area | null) ?? null
+    } catch {
+      return null
+    }
+  })()
+
+  const geocoded = callFunction<{
+    ok: boolean
+    area_label: string | null
+    district_id: number | null
+    outside_country?: boolean
+  }>('geocode', { lat: coords.lat, lng: coords.lng }, 6000)
+
+  const [area, geo] = await Promise.all([centroid, geocoded])
+  if (!area) return null
+
+  if (geo.ok && geo.data.area_label) {
+    return {
+      ...area,
+      area_label: geo.data.area_label,
+      // OSM knowing the district beats a centroid guessing it, but only when
+      // it resolved to one of ours.
+      district_id: geo.data.district_id ?? area.district_id,
+    }
   }
+
+  return area
 }
 
 /**

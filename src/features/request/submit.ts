@@ -16,10 +16,14 @@ export type RequestForm = {
   unitsNeeded: string
   urgency: Urgency
 
+  /** Only set when the typed name matches a seeded hospital. Used for coordinates. */
   hospitalId: string | null
+  /** The name, however it was entered. Always the thing that gets stored. */
   hospitalFreeText: string
   districtId: number | null
   upazilaId: number | null
+  /** PUBLIC. Neighbourhood where the blood is needed. Auto-filled, editable. */
+  areaName: string
   coords: Coords | null
 
   neededBy: string
@@ -38,16 +42,23 @@ export const emptyRequestForm: RequestForm = {
   hospitalFreeText: '',
   districtId: null,
   upazilaId: null,
+  areaName: '',
   coords: null,
   neededBy: '',
   patientNote: '',
 }
 
 export type MatchOutcome = {
+  /** How many people are being told, in total. Not "how many this call added". */
   matched_count: number
+  /** Added by the most recent matcher run. Zero on a re-run is normal. */
+  newly_matched?: number
   radius_km: number | null
   widened: boolean
-  emails_queued: boolean
+  /** The setting. Says nothing about whether anything was actually queued. */
+  auto_email_enabled?: boolean
+  /** Rows really in email_queue for this request. */
+  emails_queued?: number
 }
 
 export type RequestResult =
@@ -91,10 +102,14 @@ export async function submitRequest(form: RequestForm): Promise<RequestResult> {
     units_needed: Math.max(1, Math.min(20, Number(form.unitsNeeded) || 1)),
     urgency: form.urgency,
 
+    // The id only when the name matched something we seeded, for its
+    // coordinates. The NAME always, so no reader has to join to find it — that
+    // is why the admin table showed a dash for a hospital picked from the list.
     hospital_id: form.hospitalId,
     hospital_name_free_text: form.hospitalFreeText.trim() || null,
     district_id: form.districtId,
     upazila_id: form.upazilaId,
+    area_name: form.areaName.trim() || null,
     lat: form.coords?.lat ?? null,
     lng: form.coords?.lng ?? null,
 
@@ -147,7 +162,11 @@ export async function submitRequest(form: RequestForm): Promise<RequestResult> {
         matched_count: viaFunction.data.matched,
         radius_km: viaFunction.data.radius_km,
         widened: viaFunction.data.whole_district,
-        emails_queued: viaFunction.data.auto_email_enabled,
+        auto_email_enabled: viaFunction.data.auto_email_enabled,
+        // The function's own count of rows it put in email_queue. It used to
+        // be the setting reported under this name, which is how "emailing is
+        // on" was read as "emails were queued".
+        emails_queued: viaFunction.data.queued,
       },
     }
   }
@@ -158,17 +177,37 @@ export async function submitRequest(form: RequestForm): Promise<RequestResult> {
     return { ok: false, reason: 'rate_limited' }
   }
 
-  // Fallback for a deployment where the functions are not published yet.
-  // Matching still runs, so admins can send by hand; only the IP cap and the
-  // emails are missing.
+  // Fallback for a deployment where the functions are not published yet, or
+  // one where send-request-emails failed partway.
+  //
+  // The second case is why this is careful. If the function already ran the
+  // matcher before failing, this call adds nobody: the matcher deliberately
+  // skips donors it has already recorded. It used to report that as
+  // matched_count 0, and the screen told the requester nobody was found while
+  // the admin panel showed the same request matched with a recipient.
+  //
+  // Since 0020 matched_count is the request's real total rather than this
+  // call's insert count, so a re-run reports the truth. The console line
+  // below exists because a fallback that reached here means the Edge Function
+  // failed, which is worth knowing even when the user sees a good outcome.
   try {
     const supabase = await pending
     const { data, error } = await supabase
       .rpc('run_request_matcher', { in_request_id: requestId })
       .maybeSingle()
     if (error) throw error
-    return { ok: true, requestId, match: (data as MatchOutcome | null) ?? null }
-  } catch {
+
+    const match = (data as MatchOutcome | null) ?? null
+    console.warn(
+      'send-request-emails did not succeed; matched directly instead.',
+      'No email can be queued on this path — nothing in the database writes to email_queue.',
+      match,
+    )
+    return { ok: true, requestId, match }
+  } catch (err) {
+    // Nothing is known about the match now, which is different from knowing
+    // it was zero. RequestSent tells those apart.
+    console.error('Both the Edge Function and the direct matcher failed.', err)
     return { ok: true, requestId, match: null }
   }
 }

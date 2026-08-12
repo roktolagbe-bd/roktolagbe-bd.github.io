@@ -446,5 +446,20 @@
   "certificate.recover.phoneHint": "The number you gave when you registered.",
   "certificate.recover.action": "Send the link",
   "certificate.recover.sent": "If that number is registered and has an email address on file, the link has been sent to it. Check your inbox.",
-  "certificate.recover.why": "We never say whether a number is registered — the answer is always the same. If it changed, anyone could type a number and learn who donates blood, and this site rests on the promise that it is not that."
+  "certificate.recover.why": "We never say whether a number is registered — the answer is always the same. If it changed, anyone could type a number and learn who donates blood, and this site rests on the promise that it is not that.",
+  "request.area.hint": "Such as Gulshan 1, Dhanmondi. It tells a donor whether they can get there.",
+  "request.hospital.anyName": "Any hospital or clinic name. It does not have to be on our list — start typing and known names will appear.",
+  "request.sent.queueEmpty": "Donors were found, but no email has reached the sending queue yet. Tell an admin.",
+  "request.sent.unknown.title": "Your request is saved, but we could not confirm how many were told",
+  "request.sent.unknown.body": "The request is stored safely and admins can see it. The matching step is not responding right now, which is not the same as nobody being available. If this is urgent, contact a hospital blood bank directly.",
+  "admin.nav.health": "Health",
+  "admin.health.title": "Did the last request actually work?",
+  "admin.health.body": "Reads the database stage by stage, rather than what any function reported at the time. Changes nothing.",
+  "admin.health.run": "Check again",
+  "admin.health.requestId": "Request id (blank for the most recent)",
+  "admin.health.requestId.placeholder": "leave blank for the newest request",
+  "admin.health.allGood": "Every stage is healthy.",
+  "admin.health.problems": "{count} stage(s) have a problem.",
+  "admin.health.manual.title": "The same check as SQL",
+  "admin.health.manual.body": "If the admin panel will not open, run this one line in the Supabase SQL editor."
 }

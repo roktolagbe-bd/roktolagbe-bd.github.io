@@ -1,4 +1,5 @@
 import { getSupabase } from '@/lib/supabase'
+import { newId } from '@/lib/id'
 import type { DonorForm } from './validation'
 import { normalisePhone } from './validation'
 
@@ -33,7 +34,11 @@ export async function submitDonor(form: DonorForm): Promise<SubmitResult> {
 
   const whatsapp = form.whatsapp.trim() ? normalisePhone(form.whatsapp) : null
 
+  // Chosen here rather than read back. See src/lib/id.ts.
+  const donorId = newId()
+
   const payload = {
+    id: donorId,
     full_name: form.fullName.trim(),
     // Blank means "use my first name", which the database trigger applies, so
     // nobody publishes their full legal name by accident.
@@ -72,11 +77,7 @@ export async function submitDonor(form: DonorForm): Promise<SubmitResult> {
 
   try {
     const supabase = await pending
-    const { data, error } = await supabase
-      .from('donors')
-      .insert(payload)
-      .select('id')
-      .single()
+    const { error } = await supabase.from('donors').insert(payload)
 
     if (error) {
       // 23505 unique_violation: the phone number is already registered.
@@ -84,10 +85,11 @@ export async function submitDonor(form: DonorForm): Promise<SubmitResult> {
       if (error.message?.includes('rate_limit_exceeded')) {
         return { ok: false, reason: 'rate_limited' }
       }
+      console.error('Could not register the donor:', error.message, error)
       return { ok: false, reason: 'unknown', detail: error.message }
     }
 
-    return { ok: true, donorId: (data as { id: string }).id }
+    return { ok: true, donorId }
   } catch (err) {
     if (typeof navigator !== 'undefined' && !navigator.onLine) {
       return { ok: false, reason: 'offline' }

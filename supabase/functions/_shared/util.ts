@@ -42,16 +42,76 @@ export function adminClient(): SupabaseClient {
 /**
  * The caller's IP address, as seen by the edge.
  *
- * This is passed straight to hash_ip() in Postgres and never stored raw. The
- * first entry in x-forwarded-for is the client; the rest are proxies.
+ * Never leaves this module. hashedCallerIp() below is what the rest of the
+ * code uses; this stays unexported so there is no convenient way to pass a
+ * raw address anywhere else.
+ *
+ * The first entry in x-forwarded-for is the client; the rest are proxies.
  */
-export function callerIp(req: Request): string | null {
+function callerIp(req: Request): string | null {
   const forwarded = req.headers.get('x-forwarded-for')
   if (forwarded) {
     const first = forwarded.split(',')[0]?.trim()
     if (first) return first
   }
   return req.headers.get('cf-connecting-ip') ?? req.headers.get('x-real-ip') ?? null
+}
+
+/**
+ * A salt short enough to be guessed is not a salt.
+ *
+ * IPv4 is only 2^32 addresses, and a single core gets through the whole space
+ * in about an hour. The salt is the only thing standing between a leaked
+ * ip_hash column and a list of real addresses, so it has to be long enough
+ * that it cannot be brute-forced alongside them.
+ */
+const MIN_SALT_LENGTH = 16
+
+/**
+ * The caller's address, salted and hashed, ready for check_and_record_ip.
+ *
+ * The salt lives in the IP_SALT Edge Function secret. It used to live in a
+ * database setting, which cannot work on hosted Supabase: the `postgres` role
+ * is not the database owner there, so `alter database postgres set` fails with
+ * "permission denied to set parameter" on every plan.
+ *
+ * Hashing here rather than in Postgres means the raw address never reaches the
+ * database at all, so no trigger, log line or query can put one in a table.
+ *
+ * Returns null when there is nothing safe to return: no address, or no usable
+ * salt. The caller treats null as "cannot rate limit this one" and carries on,
+ * because refusing to take a blood request over a missing environment variable
+ * would be the wrong way round. It is loud in the logs instead.
+ */
+export async function hashedCallerIp(req: Request): Promise<string | null> {
+  const ip = callerIp(req)
+  if (!ip) return null
+
+  const salt = Deno.env.get('IP_SALT')?.trim()
+  if (!salt) {
+    console.error(
+      'IP_SALT is not set. Rate limiting by IP is DISABLED; the honeypot and ' +
+        'time-on-page checks are still active. Set it under Project Settings ' +
+        '-> Edge Functions -> Secrets. See README section 3f.',
+    )
+    return null
+  }
+  if (salt.length < MIN_SALT_LENGTH) {
+    console.error(
+      `IP_SALT is only ${salt.length} characters. A salt that short can be ` +
+        `brute-forced along with the address, so it is being ignored. Use at ` +
+        `least ${MIN_SALT_LENGTH}; 32 or more is better.`,
+    )
+    return null
+  }
+
+  const digest = await crypto.subtle.digest(
+    'SHA-256',
+    new TextEncoder().encode(`${salt}|${ip.trim()}`),
+  )
+  return Array.from(new Uint8Array(digest))
+    .map((byte) => byte.toString(16).padStart(2, '0'))
+    .join('')
 }
 
 export async function readSettings(supabase: SupabaseClient): Promise<Record<string, unknown>> {

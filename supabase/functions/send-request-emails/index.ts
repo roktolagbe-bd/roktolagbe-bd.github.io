@@ -1,6 +1,6 @@
 import {
   adminClient,
-  callerIp,
+  hashedCallerIp,
   json,
   preflight,
   readSettings,
@@ -48,10 +48,14 @@ Deno.serve(async (req) => {
     // This is the only place the limit can actually be applied: a browser
     // cannot see its own public address, and asking a third party for it would
     // leak the request to them.
-    const ip = callerIp(req)
-    if (ip) {
+    //
+    // Salted and hashed here rather than in Postgres, so the address itself
+    // never reaches the database. Null means no digest could be made (no
+    // address, or IP_SALT unset), and the honeypot and timing checks stand.
+    const ipHash = await hashedCallerIp(req)
+    if (ipHash) {
       const { data: allowed } = await supabase.rpc('check_and_record_ip', {
-        in_ip: ip,
+        in_ip_hash: ipHash,
         in_kind: 'request',
         in_target_id: requestId,
       })

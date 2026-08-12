@@ -189,6 +189,7 @@ In the Supabase dashboard: **Project Settings** → **Edge Functions** → **Sec
 | `GMAIL_USER` | `roktolagbe.bd@gmail.com` |
 | `GMAIL_APP_PASSWORD` | the 16 characters from step 3a |
 | `IP_SALT` | a long random string you generate yourself — see 3f |
+| `DRAIN_SECRET` | another one, shared with the GitHub secret — see 3d |
 
 `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are provided automatically.
 
@@ -234,13 +235,57 @@ supabase functions deploy          # all of them
 
 ### 3d. Drain the queue on a schedule
 
-Nothing sends by itself. Something has to empty `email_queue`. Pick one:
+Nothing sends by itself. Something has to empty `email_queue`.
 
-- **pg_cron**: run `supabase/migrations/0010_cron.sql`, after replacing the two
-  placeholders in it. Everything stays inside Supabase.
-- **GitHub Actions**: enable `.github/workflows/drain-queue.yml`.
+**This project uses GitHub Actions.** `.github/workflows/drain-queue.yml` is
+enabled and runs every five minutes. It needs two repository secrets under
+**Settings** → **Secrets and variables** → **Actions**:
 
-Do not do both, or every email gets two attempts at once.
+| Name | Where the value comes from |
+| --- | --- |
+| `SUPABASE_PROJECT_REF` | Project Settings → General → Reference ID |
+| `DRAIN_SECRET` | You generate it: `openssl rand -base64 32` |
+
+`DRAIN_SECRET` goes in **two** places with the same value: the GitHub secret
+above, and Supabase → **Project Settings** → **Edge Functions** → **Secrets**.
+The function rejects any call that does not present it.
+
+> **No database key goes in a GitHub secret.** A repository secret is readable
+> by every workflow in the repository and by anyone who can push one, and the
+> service_role key bypasses every privacy rule in the database. Giving a cron
+> job the ability to read every donor's phone number, so that it can ask for a
+> queue to be emptied, is not a trade worth making. `DRAIN_SECRET` proves one
+> thing — that the caller may ask for a drain. It opens no tables. If it leaks,
+> the worst anyone can do is cause the queue to be sent, which is its purpose,
+> and rotating it means changing one string in two places with no redeploy.
+>
+> This also sidesteps Supabase's new API key format, where a legacy
+> `service_role` key may not exist at all.
+
+Two things about GitHub's scheduler, neither of which this workflow can change:
+runs are delayed under load, so ten to fifteen minutes late is normal; and
+GitHub disables scheduled workflows in public repositories after 60 days
+without a commit. Nothing is lost to a missed run — the queue keeps what is
+due — but a repository that goes quiet for two months stops sending mail
+silently.
+
+The alternative is **pg_cron**: `supabase/optional/cron_schedule.sql`, after
+replacing the two placeholders in it. It is not part of the migrations and
+`setup.sql` does not apply it. It has neither of the limitations above.
+
+**Do not run both**, or every email gets two attempts at once. To check
+nothing is scheduled in the database:
+
+```sql
+select jobname, schedule from cron.job;
+```
+
+An error saying the `cron` schema does not exist means nothing is scheduled,
+which is what you want when using the workflow.
+
+Request expiry does not depend on this choice. `expire_old_requests()` runs
+inside `drain-email-queue` on every invocation, because the pg_cron file
+schedules an hourly sweep that the workflow had no way to replicate.
 
 ### 3e. Turn the master switch on
 

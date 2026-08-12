@@ -32,6 +32,7 @@ const Learn = lazy(() => import('@/pages/Learn'))
 const Privacy = lazy(() => import('@/pages/Privacy'))
 const Respond = lazy(() => import('@/pages/Respond'))
 const OptOut = lazy(() => import('@/pages/OptOut'))
+const CertificatePage = lazy(() => import('@/pages/CertificatePage'))
 
 function RouteEffects() {
   const location = useLocation()
@@ -88,6 +89,10 @@ export default function App() {
             <Route path="/respond/:token" element={<Respond />} />
             {/* One tap from any email, and the emails stop. */}
             <Route path="/opt-out/:token" element={<OptOut />} />
+            {/* Both shapes: with a token it is the certificate, without it the
+                "I lost my link" form. */}
+            <Route path="/certificate" element={<CertificatePage />} />
+            <Route path="/certificate/:token" element={<CertificatePage />} />
             <Route path="/admin/*" element={<AdminApp />} />
             <Route path="*" element={<NotFound />} />
           </Routes>

@@ -4,7 +4,7 @@ import type { DonorForm } from './validation'
 import { normalisePhone } from './validation'
 
 export type SubmitResult =
-  | { ok: true; donorId: string }
+  | { ok: true; donorId: string; certificateToken: string }
   | { ok: false; reason: 'not_configured' | 'duplicate_phone' | 'rate_limited' | 'offline' | 'unknown'; detail?: string }
 
 /**
@@ -37,8 +37,15 @@ export async function submitDonor(form: DonorForm): Promise<SubmitResult> {
   // Chosen here rather than read back. See src/lib/id.ts.
   const donorId = newId()
 
+  // The certificate credential. Generated in the browser for the same reason
+  // as the id: the column has a default, but anon cannot select it back, so
+  // the only way to know it is to have decided it. 122 random bits from
+  // crypto.getRandomValues is not going to be guessed.
+  const certificateToken = newId()
+
   const payload = {
     id: donorId,
+    certificate_token: certificateToken,
     full_name: form.fullName.trim(),
     // Blank means "use my first name", which the database trigger applies, so
     // nobody publishes their full legal name by accident.
@@ -89,7 +96,7 @@ export async function submitDonor(form: DonorForm): Promise<SubmitResult> {
       return { ok: false, reason: 'unknown', detail: error.message }
     }
 
-    return { ok: true, donorId }
+    return { ok: true, donorId, certificateToken }
   } catch (err) {
     if (typeof navigator !== 'undefined' && !navigator.onLine) {
       return { ok: false, reason: 'offline' }

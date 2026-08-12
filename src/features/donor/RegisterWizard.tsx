@@ -44,9 +44,13 @@ export function RegisterWizard() {
   const [honeypot, setHoneypot] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [failure, setFailure] = useState<TKey | null>(null)
-  const [done, setDone] = useState<{ bloodGroup: BloodGroup; districtName: string | null } | null>(
-    null,
-  )
+  const [done, setDone] = useState<{
+    fullName: string
+    bloodGroup: BloodGroup
+    areaName: string | null
+    districtName: string | null
+    certificateToken: string
+  } | null>(null)
 
   // Focus moves to the new step's heading so a screen reader announces it and
   // a keyboard user is not left at the bottom of the previous step.
@@ -109,14 +113,28 @@ export function RegisterWizard() {
     setSubmitting(false)
 
     if (result.ok) {
-      setDone({ bloodGroup: form.bloodGroup as BloodGroup, districtName })
+      setDone({
+        fullName: form.fullName.trim(),
+        bloodGroup: form.bloodGroup as BloodGroup,
+        areaName: form.areaName.trim() || null,
+        districtName,
+        certificateToken: result.certificateToken,
+      })
       return
     }
     setFailure(FAILURE_MESSAGE[result.reason] ?? 'register.error.unknown')
   }
 
   if (done) {
-    return <ShareCard bloodGroup={done.bloodGroup} districtName={done.districtName} />
+    return (
+      <ShareCard
+        fullName={done.fullName}
+        bloodGroup={done.bloodGroup}
+        areaName={done.areaName}
+        districtName={done.districtName}
+        certificateToken={done.certificateToken}
+      />
+    )
   }
 
   const stepProps = { form, errors, update }

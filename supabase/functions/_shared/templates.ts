@@ -392,3 +392,53 @@ export function acceptanceEmail(input: {
 
   return { subject, html, text }
 }
+
+/**
+ * "Here is your certificate link again."
+ *
+ * Only ever sent to an address already on the donor's own row, and only when
+ * a phone number matched. The person who typed the number into the form is
+ * told nothing either way, so this email is the only place a match is ever
+ * visible, and it goes to the donor rather than the asker.
+ *
+ * No opt-out link. This is not a notification anyone can be subscribed to; it
+ * is a reply to a request the donor made about their own record. The opt-out
+ * footer belongs on donor_request mail, where there is something to opt out
+ * of.
+ */
+export function certificateLinkEmail(input: { donorName: string; token: string }) {
+  const url = `${SITE}/certificate/${encodeURIComponent(input.token)}`
+
+  const html = shell(
+    `
+    ${p(
+      `${escapeHtml(input.donorName)}, আপনার রক্তদাতা সনদের লিংক এই যে।`,
+      `${escapeHtml(input.donorName)}, here is the link to your blood donor certificate.`,
+    )}
+    ${button(url, 'সনদ দেখুন / View certificate', SHINDUR)}
+    ${p(
+      'লিংকটি গোপন রাখুন। যার কাছে এটি থাকবে সে আপনার নাম, রক্তের গ্রুপ ও এলাকা দেখতে পাবে।',
+      'Keep the link private. Anyone holding it can see your name, blood group and area.',
+    )}
+    ${p(
+      'আপনি না চাইলে এই ইমেইলটি কেউ পাঠায়নি — কেউ আপনার নম্বর দিয়ে লিংক চেয়েছিল। কিছু করার দরকার নেই, লিংকটি আগের মতোই আছে।',
+      'If you did not ask for this, somebody entered your number on the recovery form. Nothing has changed and there is nothing you need to do.',
+    )}`,
+    `রক্ত লাগবে &middot; <a href="${SITE}" style="color:${MUTED};">roktolagbe-bd.github.io</a>`,
+  )
+
+  const text = [
+    `${input.donorName}, আপনার রক্তদাতা সনদের লিংক:`,
+    url,
+    '',
+    'লিংকটি গোপন রাখুন। যার কাছে এটি থাকবে সে আপনার নাম, রক্তের গ্রুপ ও এলাকা দেখতে পাবে।',
+    '',
+    `${input.donorName}, here is the link to your blood donor certificate:`,
+    url,
+    '',
+    'If you did not ask for this, somebody entered your number on the recovery form.',
+    'Nothing has changed and there is nothing you need to do.',
+  ].join('\n')
+
+  return { subject: 'আপনার রক্তদাতা সনদ / Your blood donor certificate', html, text }
+}

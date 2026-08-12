@@ -52,3 +52,12 @@ verify_jwt = false
 # Reached from a link in an email, by someone who is not logged in. The token
 # in the body is the credential.
 verify_jwt = false
+
+[functions.geocode]
+# Called from the registration form by anonymous visitors. The anon key in the
+# header is the only credential there is.
+verify_jwt = false
+
+[functions.certificate-link]
+# Same: reached from a public form by somebody who is not logged in.
+verify_jwt = false

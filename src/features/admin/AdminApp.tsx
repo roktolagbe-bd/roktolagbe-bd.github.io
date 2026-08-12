@@ -11,11 +11,13 @@ import { Donors } from './Donors'
 import { Requests } from './Requests'
 import { Settings } from './Settings'
 import { Audit, MasterData, Queue } from './Operations'
+import { Health } from './Health'
 
-type Tab = 'dashboard' | 'donors' | 'requests' | 'queue' | 'settings' | 'master' | 'audit'
+type Tab = 'dashboard' | 'health' | 'donors' | 'requests' | 'queue' | 'settings' | 'master' | 'audit'
 
 const TABS: Array<{ id: Tab; key: TKey }> = [
   { id: 'dashboard', key: 'admin.nav.dashboard' },
+  { id: 'health', key: 'admin.nav.health' },
   { id: 'donors', key: 'admin.nav.donors' },
   { id: 'requests', key: 'admin.nav.requests' },
   { id: 'queue', key: 'admin.nav.queue' },
@@ -109,6 +111,7 @@ export default function AdminApp() {
       </nav>
 
       {tab === 'dashboard' && <Dashboard client={client} />}
+      {tab === 'health' && <Health client={client} />}
       {tab === 'donors' && <Donors client={client} />}
       {tab === 'requests' && <Requests client={client} />}
       {tab === 'queue' && <Queue client={client} />}

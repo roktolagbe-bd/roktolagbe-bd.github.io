@@ -92,10 +92,15 @@ export function RequestForm() {
     void locateArea(coords).then((area) => {
       if (!area) return
       // See UPAZILA_CONFIDENCE_KM: a far-away centroid is a guess, not an answer.
-      update({
+      const patch: Partial<FormShape> = {
         districtId: area.district_id,
         upazilaId: upazilaIsConfident(area) ? (area.upazila_id ?? null) : null,
-      })
+      }
+      // The neighbourhood from the geocoder, the same as the donor form gets.
+      // Only when the box is empty: a name the requester typed always wins.
+      const suggested = area.area_label?.trim()
+      if (suggested && !form.areaName.trim()) patch.areaName = suggested
+      update(patch)
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [geo.status, geo.coords])
@@ -119,7 +124,9 @@ export function RequestForm() {
     if (!form.districtId) next.districtId = 'validation.districtRequired'
     // The schema requires one or the other, so catch it here with a readable
     // message instead of letting Postgres reject it.
-    if (!form.hospitalId && !form.hospitalFreeText.trim()) {
+    // One field now, so one check. Any name is acceptable; the seeded list is
+    // a suggestion, not a constraint.
+    if (!form.hospitalFreeText.trim()) {
       next.hospitalFreeText = 'validation.hospitalRequired'
     }
     return next
@@ -312,40 +319,64 @@ export function RequestForm() {
               in from the point above, silently, for the districts where it
               means something. */}
 
-          <Field label={t('request.hospital')} hint={t('request.hospital.hint')}>
-            {({ id }) => (
-              <Select
+          {/* The area, same as the donor form. In Dhaka the difference between
+              Gulshan and Mirpur is an hour in traffic, and "Dhaka" alone does
+              not tell a donor whether they can get there. */}
+          <Field label={t('form.area')} hint={t('request.area.hint')}>
+            {({ id, invalid }) => (
+              <Input
                 id={id}
-                value={form.hospitalId ?? ''}
-                disabled={!form.districtId}
-                onChange={(e) => update({ hospitalId: e.target.value || null })}
-              >
-                <option value="">{t('request.hospital.other')}</option>
-                {hospitals.map((h) => (
-                  <option key={h.id} value={h.id}>
-                    {label(h.name_en, h.name_bn)}
-                  </option>
-                ))}
-              </Select>
+                invalid={invalid}
+                value={form.areaName}
+                maxLength={60}
+                placeholder={t('form.area.placeholder')}
+                onChange={(e) => update({ areaName: e.target.value })}
+                autoComplete="address-level3"
+              />
             )}
           </Field>
 
-          {!form.hospitalId && (
-            <Field
-              label={t('request.hospitalName')}
-              error={errors.hospitalFreeText ? t(errors.hospitalFreeText) : null}
-              required
-            >
-              {({ id, invalid }) => (
+          {/* One field, not a dropdown plus a fallback.
+              42 seeded hospitals cannot cover Bangladesh and most emergencies
+              happen somewhere that is not on the list, so the list is a
+              suggestion rather than a constraint. Typing a name that matches a
+              seeded hospital also captures its id, which is only used for its
+              coordinates; matching itself reads the map pin, so an unlisted
+              hospital works exactly as well. */}
+          <Field
+            label={t('request.hospitalName')}
+            hint={t('request.hospital.anyName')}
+            error={errors.hospitalFreeText ? t(errors.hospitalFreeText) : null}
+            required
+          >
+            {({ id, describedBy, invalid }) => (
+              <>
                 <Input
                   id={id}
+                  aria-describedby={describedBy}
                   invalid={invalid}
+                  list="hospital-suggestions"
                   value={form.hospitalFreeText}
-                  onChange={(e) => update({ hospitalFreeText: e.target.value })}
+                  onChange={(e) => {
+                    const typed = e.target.value
+                    // If what they typed is one of ours, keep its id for the
+                    // coordinates. Otherwise the name stands on its own.
+                    const known = hospitals.find(
+                      (h) =>
+                        h.name_en?.toLowerCase() === typed.trim().toLowerCase() ||
+                        h.name_bn?.toLowerCase() === typed.trim().toLowerCase(),
+                    )
+                    update({ hospitalFreeText: typed, hospitalId: known?.id ?? null })
+                  }}
                 />
-              )}
-            </Field>
-          )}
+                <datalist id="hospital-suggestions">
+                  {hospitals.map((h) => (
+                    <option key={h.id} value={label(h.name_en, h.name_bn)} />
+                  ))}
+                </datalist>
+              </>
+            )}
+          </Field>
         </div>
 
         {/* ---- Who is asking ---- */}
@@ -442,6 +473,13 @@ export function RequestForm() {
  */
 function RequestSent({ match }: { match: MatchOutcome | null }) {
   const { t, n } = useI18n()
+
+  // Three states, not two. A null match means the matcher could not be reached
+  // at all, which is NOT the same as it having found nobody, and saying "no one
+  // found right now" in that case is how the site came to contradict its own
+  // admin panel. Unknown gets its own wording.
+  const outcome: 'matched' | 'none' | 'unknown' =
+    match === null ? 'unknown' : match.matched_count > 0 ? 'matched' : 'none'
   const count = match?.matched_count ?? 0
 
   return (
@@ -449,7 +487,7 @@ function RequestSent({ match }: { match: MatchOutcome | null }) {
       <h1 className="text-hero font-extrabold">{t('request.sent.title')}</h1>
 
       <div className="mt-6 rounded-lg border-2 border-line bg-raise p-6 shadow-ink-3">
-        {count > 0 ? (
+        {outcome === 'matched' ? (
           <>
             <p className="text-5xl font-extrabold tabular-nums">{n(count)}</p>
             <p className="mt-2 font-bold">{t('request.sent.donorsFound', { count })}</p>
@@ -461,16 +499,31 @@ function RequestSent({ match }: { match: MatchOutcome | null }) {
               </p>
             ) : null}
 
-            {match?.emails_queued === false && (
+            {match?.auto_email_enabled === false && (
               <p className="mt-4 rounded-md border-2 border-line bg-gada-fill px-3 py-2 text-sm font-bold text-tile-ink">
                 {t('request.sent.emailsOff')}
               </p>
             )}
+
+            {/* Matched, emailing on, and yet nothing actually reached the
+                queue. Only the Edge Function writes to email_queue, so this
+                means it did not run. Saying so beats implying mail is on its
+                way. */}
+            {match?.auto_email_enabled === true && match?.emails_queued === 0 && (
+              <p className="mt-4 rounded-md border-2 border-line bg-gada-fill px-3 py-2 text-sm font-bold text-tile-ink">
+                {t('request.sent.queueEmpty')}
+              </p>
+            )}
           </>
-        ) : (
+        ) : outcome === 'none' ? (
           <>
             <p className="font-extrabold">{t('request.sent.noneFound.title')}</p>
             <p className="mt-2 text-sm text-muted">{t('request.sent.noneFound.body')}</p>
+          </>
+        ) : (
+          <>
+            <p className="font-extrabold">{t('request.sent.unknown.title')}</p>
+            <p className="mt-2 text-sm text-muted">{t('request.sent.unknown.body')}</p>
           </>
         )}
       </div>

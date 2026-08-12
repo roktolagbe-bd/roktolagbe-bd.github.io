@@ -6,7 +6,7 @@ import { Honeypot, useFormTiming } from '@/components/form/Honeypot'
 import { useI18n, type TKey } from '@/lib/i18n'
 import { BLOOD_GROUPS, type BloodGroup } from '@/lib/blood'
 import { useGeolocation, isInBangladesh } from '@/lib/geolocation'
-import { locateArea, upazilaIsConfident, upazilasOf, usePlaces, type Hospital } from '@/lib/places'
+import { locateArea, upazilaIsConfident, usePlaces, type Hospital } from '@/lib/places'
 import { getSupabase, isSupabaseConfigured } from '@/lib/supabase'
 import { normalisePhone } from '@/features/donor/validation'
 import { cn } from '@/lib/cn'
@@ -35,7 +35,7 @@ type Errors = Partial<Record<keyof FormShape, TKey>>
 
 export function RequestForm() {
   const { t, lang } = useI18n()
-  const { districts, upazilas } = usePlaces()
+  const { districts } = usePlaces()
   const geo = useGeolocation()
   const timing = useFormTiming(4)
 
@@ -306,25 +306,11 @@ export function RequestForm() {
             )}
           </Field>
 
-          <Field label={t('form.upazila')}>
-            {({ id }) => (
-              <Select
-                id={id}
-                value={form.upazilaId ?? ''}
-                disabled={!form.districtId}
-                onChange={(e) => update({ upazilaId: e.target.value ? Number(e.target.value) : null })}
-              >
-                <option value="">
-                  {form.districtId ? t('form.choose') : t('form.chooseDistrictFirst')}
-                </option>
-                {upazilasOf(upazilas, form.districtId).map((u) => (
-                  <option key={u.id} value={u.id}>
-                    {label(u.name_en, u.name_bn)}
-                  </option>
-                ))}
-              </Select>
-            )}
-          </Field>
+          {/* No upazila here either. District plus hospital already says where
+              the blood is needed, matching is done on coordinates, and inside
+              Dhaka the list has no correct answer to offer. It is still filled
+              in from the point above, silently, for the districts where it
+              means something. */}
 
           <Field label={t('request.hospital')} hint={t('request.hospital.hint')}>
             {({ id }) => (

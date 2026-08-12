@@ -46,8 +46,12 @@ export async function submitDonor(form: DonorForm): Promise<SubmitResult> {
     facebook_url: form.facebookUrl.trim() || null,
 
     district_id: form.districtId,
-    upazila_id: form.upazilaId,
+    // PUBLIC. The neighbourhood, shown in search results.
+    area_name: form.areaName.trim() || null,
+    // PRIVATE. Street level. Released only to a requester this donor accepts.
     address_line: form.addressLine.trim() || null,
+    // upazila_id is deliberately absent: a trigger derives it from the point,
+    // so the form never has to ask a question Dhaka has no answer to.
 
     // The true position. The public only ever sees the fuzzed pair, which a
     // trigger derives from these before the row is visible to anything.

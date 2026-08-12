@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Field, Input, Select, Textarea } from '@/components/form/Field'
+import { PhoneInput } from '@/components/form/PhoneInput'
 import { Button, ButtonLink } from '@/components/Button'
 import { Honeypot, useFormTiming } from '@/components/form/Honeypot'
 import { useI18n, type TKey } from '@/lib/i18n'
 import { BLOOD_GROUPS, type BloodGroup } from '@/lib/blood'
 import { useGeolocation, isInBangladesh } from '@/lib/geolocation'
-import { locateArea, upazilasOf, usePlaces, type Hospital } from '@/lib/places'
+import { locateArea, upazilaIsConfident, upazilasOf, usePlaces, type Hospital } from '@/lib/places'
 import { getSupabase, isSupabaseConfigured } from '@/lib/supabase'
 import { normalisePhone } from '@/features/donor/validation'
 import { cn } from '@/lib/cn'
@@ -90,7 +91,11 @@ export function RequestForm() {
     update({ coords })
     void locateArea(coords).then((area) => {
       if (!area) return
-      update({ districtId: area.district_id, upazilaId: area.upazila_id ?? null })
+      // See UPAZILA_CONFIDENCE_KM: a far-away centroid is a guess, not an answer.
+      update({
+        districtId: area.district_id,
+        upazilaId: upazilaIsConfident(area) ? (area.upazila_id ?? null) : null,
+      })
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [geo.status, geo.coords])
@@ -377,28 +382,24 @@ export function RequestForm() {
           required
         >
           {({ id, invalid }) => (
-            <Input
+            <PhoneInput
               id={id}
               invalid={invalid}
-              type="tel"
-              inputMode="tel"
-              autoComplete="tel"
-              placeholder="01712345678"
               value={form.requesterPhone}
-              onChange={(e) => update({ requesterPhone: e.target.value })}
+              onChange={(requesterPhone) => update({ requesterPhone })}
+              countryLabel={t('form.countryCode')}
             />
           )}
         </Field>
 
         <Field label={t('form.whatsapp')} error={errors.requesterWhatsapp ? t(errors.requesterWhatsapp) : null}>
           {({ id, invalid }) => (
-            <Input
+            <PhoneInput
               id={id}
               invalid={invalid}
-              type="tel"
-              inputMode="tel"
               value={form.requesterWhatsapp}
-              onChange={(e) => update({ requesterWhatsapp: e.target.value })}
+              onChange={(requesterWhatsapp) => update({ requesterWhatsapp })}
+              countryLabel={t('form.countryCode')}
             />
           )}
         </Field>

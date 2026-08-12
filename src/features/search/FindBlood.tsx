@@ -5,7 +5,7 @@ import { Button, ButtonLink } from '@/components/Button'
 import { useI18n, type TKey } from '@/lib/i18n'
 import { BLOOD_GROUPS, groupToSlug, slugToGroup, type BloodGroup } from '@/lib/blood'
 import { useGeolocation, isInBangladesh } from '@/lib/geolocation'
-import { locateArea, upazilasOf, usePlaces } from '@/lib/places'
+import { locateArea, upazilaIsConfident, upazilasOf, usePlaces } from '@/lib/places'
 import { cn } from '@/lib/cn'
 import { DonorCard } from './DonorCard'
 import { useDonorSearch, type SearchFilters } from './useDonorSearch'
@@ -68,7 +68,7 @@ export function FindBlood() {
       const area = await locateArea(coords)
       if (area) {
         setDistrictId(area.district_id)
-        setUpazilaId(area.upazila_id ?? null)
+        setUpazilaId(upazilaIsConfident(area) ? (area.upazila_id ?? null) : null)
       }
     })()
   }

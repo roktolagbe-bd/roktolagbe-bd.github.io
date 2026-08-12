@@ -140,6 +140,35 @@ export async function locateArea(coords: Coords): Promise<Area | null> {
   }
 }
 
+/**
+ * How far a seeded upazila centroid may be from the user before we stop
+ * claiming it is their upazila.
+ *
+ * This exists because of a real failure. A fix in Gulshan-1, accurate to 74
+ * metres, was labelled "Keraniganj": the nearest upazila centroid in Dhaka
+ * district, about 10km away. The lookup was not broken. The premise was.
+ *
+ * Central Dhaka has no upazila at all. The city is divided into thanas
+ * (Gulshan, Dhanmondi, Mirpur), and the open upazila dataset contains only the
+ * rural ring around it: Dhamrai, Dohar, Keraniganj, Nawabganj, Savar. For the
+ * most densely populated area in the country there is no right answer to pick,
+ * so the honest behaviour is to pick nothing and say so.
+ *
+ * 8km is chosen because rural upazilas are roughly 15-25km across, so a
+ * centroid within 8km is a defensible claim and anything beyond it is a guess
+ * dressed up as an answer.
+ */
+export const UPAZILA_CONFIDENCE_KM = 8
+
+/** Whether locate_area's upazila guess is close enough to act on. */
+export function upazilaIsConfident(area: Area | null): boolean {
+  return Boolean(
+    area?.upazila_id != null &&
+      area.upazila_distance_km != null &&
+      area.upazila_distance_km <= UPAZILA_CONFIDENCE_KM,
+  )
+}
+
 /** Straight-line distance in kilometres. Matches the database's haversine. */
 export function distanceKm(a: Coords, b: Coords): number {
   const R = 6371

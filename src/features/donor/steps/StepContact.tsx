@@ -1,4 +1,5 @@
 import { Field, Input, Checkbox } from '@/components/form/Field'
+import { PhoneInput } from '@/components/form/PhoneInput'
 import { useI18n } from '@/lib/i18n'
 import type { StepProps } from '../types'
 
@@ -20,17 +21,13 @@ export function StepContact({ form, errors, update }: StepProps) {
         required
       >
         {({ id, describedBy, invalid }) => (
-          <Input
+          <PhoneInput
             id={id}
-            aria-describedby={describedBy}
+            describedBy={describedBy}
             invalid={invalid}
             value={form.phone}
-            onChange={(e) => update({ phone: e.target.value })}
-            type="tel"
-            inputMode="tel"
-            autoComplete="tel"
-            placeholder="01712345678"
-            enterKeyHint="next"
+            onChange={(phone) => update({ phone })}
+            countryLabel={t('form.countryCode')}
           />
         )}
       </Field>
@@ -41,15 +38,14 @@ export function StepContact({ form, errors, update }: StepProps) {
         error={errors.whatsapp ? t(errors.whatsapp) : null}
       >
         {({ id, describedBy, invalid }) => (
-          <Input
+          <PhoneInput
             id={id}
-            aria-describedby={describedBy}
+            describedBy={describedBy}
             invalid={invalid}
             value={form.whatsapp}
-            onChange={(e) => update({ whatsapp: e.target.value })}
-            type="tel"
-            inputMode="tel"
-            placeholder="01712345678"
+            onChange={(whatsapp) => update({ whatsapp })}
+            autoComplete="tel"
+            countryLabel={t('form.countryCode')}
           />
         )}
       </Field>

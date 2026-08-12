@@ -1,5 +1,6 @@
 import { getSupabase } from '@/lib/supabase'
 import { callFunction } from '@/lib/functions'
+import { newId } from '@/lib/id'
 import type { BloodGroup } from '@/lib/blood'
 import type { Coords } from '@/lib/geolocation'
 
@@ -75,7 +76,12 @@ export async function submitRequest(form: RequestForm): Promise<RequestResult> {
     return { ok: false, reason: 'offline' }
   }
 
+  // Chosen here, not read back. See src/lib/id.ts: anon may insert and may not
+  // select, and `.select()` after an insert is a read that RLS refuses.
+  const requestId = newId()
+
   const payload = {
+    id: requestId,
     requester_name: form.requesterName.trim(),
     requester_phone: form.requesterPhone.trim(),
     requester_whatsapp: form.requesterWhatsapp.trim() || null,
@@ -97,22 +103,20 @@ export async function submitRequest(form: RequestForm): Promise<RequestResult> {
     status: 'open' as const,
   }
 
-  let requestId: string
   try {
     const supabase = await pending
-    const { data, error } = await supabase
-      .from('blood_requests')
-      .insert(payload)
-      .select('id')
-      .single()
+    const { error } = await supabase.from('blood_requests').insert(payload)
 
     if (error) {
       if (error.message?.includes('rate_limit_exceeded')) {
         return { ok: false, reason: 'rate_limited' }
       }
+      // The visitor gets a calm sentence; whoever is looking at the console
+      // gets the actual reason. Without this the only symptom of a schema or
+      // policy problem is "try again later", which is unfixable from outside.
+      console.error('Could not create the blood request:', error.message, error)
       return { ok: false, reason: 'unknown', detail: error.message }
     }
-    requestId = (data as { id: string }).id
   } catch (err) {
     if (typeof navigator !== 'undefined' && !navigator.onLine) {
       return { ok: false, reason: 'offline' }

@@ -66,8 +66,8 @@ export default function OptOut() {
           <h1 className="text-hero font-extrabold">{t('optout.failed.title')}</h1>
           <p className="mt-4 text-muted">{t('optout.failed.body')}</p>
           <p className="mt-2 text-muted">
-            <a href="mailto:roktolagbe.bd@gmail.com" className="text-nil underline underline-offset-4">
-              roktolagbe.bd@gmail.com
+            <a href="mailto:roktolagbebd@gmail.com" className="text-nil underline underline-offset-4">
+              roktolagbebd@gmail.com
             </a>
           </p>
         </>

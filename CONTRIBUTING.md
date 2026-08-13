@@ -111,7 +111,7 @@ migration, not just a component change.
 
 Do not open a public issue for anything that could expose donor data.
 
-Email **roktolagbe.bd@gmail.com** with what you found and how to reproduce it.
+Email **roktolagbebd@gmail.com** with what you found and how to reproduce it.
 We will reply as quickly as we can, fix it, and credit you if you would like to
 be credited.
 

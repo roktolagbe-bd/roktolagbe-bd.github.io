@@ -3,7 +3,7 @@ import { useI18n } from '@/lib/i18n'
 import { Brand } from './Brand'
 
 const REPO = 'https://github.com/roktolagbe-bd/roktolagbe-bd.github.io'
-const CONTACT_EMAIL = 'roktolagbe.bd@gmail.com'
+const CONTACT_EMAIL = 'roktolagbebd@gmail.com'
 
 export function Footer() {
   const { t } = useI18n()

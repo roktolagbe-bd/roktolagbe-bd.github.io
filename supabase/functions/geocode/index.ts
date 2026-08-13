@@ -27,7 +27,7 @@ import { adminClient, json, preflight } from '../_shared/util.ts'
  */
 
 const USER_AGENT =
-  'Roktolagbe/1.0 (blood donor directory for Bangladesh; +https://roktolagbe-bd.github.io; roktolagbe.bd@gmail.com)'
+  'Roktolagbe/1.0 (blood donor directory for Bangladesh; +https://roktolagbe-bd.github.io; roktolagbebd@gmail.com)'
 
 type NominatimAddress = {
   suburb?: string

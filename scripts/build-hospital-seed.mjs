@@ -23,7 +23,7 @@
 import { writeFileSync, mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 
-const USER_AGENT = 'Roktolagbe/1.0 (blood donor directory for Bangladesh; roktolagbe.bd@gmail.com)'
+const USER_AGENT = 'Roktolagbe/1.0 (blood donor directory for Bangladesh; roktolagbebd@gmail.com)'
 const NOMINATIM = 'https://nominatim.openstreetmap.org/search'
 const DISTRICTS_URL =
   'https://raw.githubusercontent.com/ifahimreza/bangladesh-geojson/master/src/data/bd-districts.json'

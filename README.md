@@ -173,7 +173,7 @@ actually be told about requests.
 An App Password is a 16 character key that lets one program send mail as your
 account, without giving it your real password. You can revoke it any time.
 
-1. Sign in to **roktolagbe.bd@gmail.com**.
+1. Sign in to **roktolagbebd@gmail.com**.
 2. Turn on 2-Step Verification: https://myaccount.google.com/signinoptions/two-step-verification
    App Passwords do not exist until you do.
 3. Go to https://myaccount.google.com/apppasswords
@@ -186,7 +186,7 @@ In the Supabase dashboard: **Project Settings** → **Edge Functions** → **Sec
 
 | Name | Value |
 | --- | --- |
-| `GMAIL_USER` | `roktolagbe.bd@gmail.com` |
+| `GMAIL_USER` | `roktolagbebd@gmail.com` |
 | `GMAIL_APP_PASSWORD` | the 16 characters from step 3a |
 | `IP_SALT` | a long random string you generate yourself — see 3f |
 | `DRAIN_SECRET` | another one, shared with the GitHub secret — see 3d |
@@ -332,6 +332,33 @@ function logs an error, sends no hash, and `check_and_record_ip` returns
 time-on-page check still apply. Changing the salt later is safe — it only
 resets the current hour's counters.
 
+### 3g. Check that Bangla actually renders
+
+Sending is not the same as arriving readable. A mail header is US-ASCII by
+definition, so a Bangla sender name has to be RFC 2047 encoded; when it was
+not, Gmail treated the header block as finished at the first non-ASCII byte
+and showed `From`, `To`, `Date`, `MIME-Version` and `Content-Type` as body
+text, with the subject displayed as literal `=?utf-8?Q?...`.
+
+There is no way to know it is right except to look in a real inbox, so:
+
+```bash
+curl -X POST "https://YOUR_PROJECT_REF.supabase.co/functions/v1/drain-email-queue" \
+  -H "x-drain-secret: YOUR_DRAIN_SECRET" \
+  -H "Content-Type: application/json" \
+  -d '{"test_to":"you@gmail.com"}'
+```
+
+One bilingual message, sent immediately, bypassing the queue. In the inbox:
+
+- the subject should read **রক্ত লাগবে — পরীক্ষামূলক বার্তা**, not `=?utf-8?...`
+- the body should be Bangla, not `=E0=A6` escape sequences
+- `From`, `To` and `Date` should be headers, not text inside the message
+- the conjuncts ক্ত ক্ষ ঙ্গ জ্ঞ should be single glyphs, not broken apart
+
+The response echoes the `From` header it sent, so you can compare it with what
+the inbox shows without opening message source.
+
 ### How to test it safely
 
 1. Leave `auto_email_enabled` **false**.
@@ -462,7 +489,7 @@ This project is being built in phases.
 
 - Bugs and ideas: [open an issue](https://github.com/roktolagbe-bd/roktolagbe-bd.github.io/issues)
 - Want to help build it: read [CONTRIBUTING.md](CONTRIBUTING.md)
-- Email: roktolagbe.bd@gmail.com
+- Email: roktolagbebd@gmail.com
 
 ## Licence
 

@@ -1,8 +1,9 @@
 import { SMTPClient } from 'https://deno.land/x/denomailer@1.6.0/mod.ts'
 import {
   adminClient,
-  errorPayload,
   drainSecretCheck,
+  errorPayload,
+  fromHeader,
   json,
   preflight,
   readSettings,
@@ -67,6 +68,65 @@ Deno.serve(async (req) => {
   }
 
   const supabase = adminClient()
+
+  // ---- A real test message, on demand ------------------------------------
+  //
+  // POST {"test_to":"you@gmail.com"} and this sends one bilingual message
+  // straight away, bypassing the queue entirely. It exists because the only
+  // way to know whether Bangla renders in a real inbox is to look at a real
+  // inbox: reading the generated string proves nothing, which is how a From
+  // header full of raw UTF-8 shipped.
+  //
+  // Behind DRAIN_SECRET like everything else here, so it is not a way for a
+  // stranger to send mail from this address.
+  try {
+    const body = await req.clone().json().catch(() => ({}))
+    const testTo = typeof body?.test_to === 'string' ? body.test_to.trim() : ''
+
+    if (testTo) {
+      const settings = await readSettings(supabase)
+      const senderName = settingString(settings, 'sender_name', 'রক্ত লাগবে')
+      const from = fromHeader(senderName, gmailUser)
+
+      const client = new SMTPClient({
+        connection: {
+          hostname: 'smtp.gmail.com',
+          port: 465,
+          tls: true,
+          auth: { username: gmailUser, password: gmailPassword },
+        },
+      })
+
+      try {
+        await client.send({
+          from,
+          to: testTo,
+          subject: 'রক্ত লাগবে — পরীক্ষামূলক বার্তা / test message',
+          content: [
+            'এটি একটি পরীক্ষামূলক বার্তা।',
+            'বাংলা ঠিকভাবে দেখা যাচ্ছে কি? যুক্তাক্ষর: ক্ত ক্ষ ঙ্গ জ্ঞ',
+            '',
+            'This is a test message. If the subject line above reads as Bangla',
+            'and not as =?utf-8?..., the header encoding is correct.',
+          ].join('\n'),
+          html:
+            '<p style="font-size:16px">এটি একটি পরীক্ষামূলক বার্তা।</p>' +
+            '<p>যুক্তাক্ষর: ক্ত ক্ষ ঙ্গ জ্ঞ</p>' +
+            '<p>If the subject reads as Bangla and this paragraph is not full of ' +
+            '<code>=E0=A6</code> escapes, the encoding is correct.</p>',
+        })
+      } finally {
+        await client.close()
+      }
+
+      // The From header is returned so it can be compared against what the
+      // inbox shows, without having to open message source.
+      return json({ ok: true, test_sent_to: testTo, from })
+    }
+  } catch (err) {
+    console.error('test send failed', err)
+    return json(errorPayload(err, 'test_send'), 500)
+  }
 
   try {
     // ---- Housekeeping, before anything that can return early -------------
@@ -135,7 +195,13 @@ Deno.serve(async (req) => {
       for (const row of rows) {
         try {
           await client.send({
-            from: `${senderName} <${gmailUser}>`,
+            // RFC 2047 encoded. Putting the raw Bangla bytes here is what
+            // broke every message: a mail header is US-ASCII by definition,
+            // and Gmail treated the header block as finished at the first
+            // non-ASCII byte, so From, To, Date, MIME-Version and
+            // Content-Type all came out as body text and the correctly
+            // encoded Subject was displayed literally.
+            from: fromHeader(senderName, gmailUser),
             to: row.to_email,
             subject: row.subject,
             // Both parts, always. Plenty of clients here show only the text

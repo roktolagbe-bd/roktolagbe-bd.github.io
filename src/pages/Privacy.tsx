@@ -73,8 +73,8 @@ export default function Privacy() {
 
       <p className="mt-8 text-sm">
         {t('privacy.contact')}{' '}
-        <a href="mailto:roktolagbe.bd@gmail.com" className="text-nil underline underline-offset-4">
-          roktolagbe.bd@gmail.com
+        <a href="mailto:roktolagbebd@gmail.com" className="text-nil underline underline-offset-4">
+          roktolagbebd@gmail.com
         </a>
       </p>
     </section>

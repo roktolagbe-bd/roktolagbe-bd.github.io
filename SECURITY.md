@@ -13,7 +13,7 @@ Written in plain English on purpose. A donor should be able to read it.
 
 **Do not open a public issue for anything that could expose donor data.**
 
-Email **roktolagbe.bd@gmail.com** with what you found and how to reproduce it.
+Email **roktolagbebd@gmail.com** with what you found and how to reproduce it.
 We will reply as fast as we can, fix it, and credit you if you would like to be
 credited.
 

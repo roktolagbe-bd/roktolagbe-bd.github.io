@@ -1,5 +1,6 @@
 import {
   adminClient,
+  errorPayload,
   hashedCallerIp,
   json,
   preflight,
@@ -43,6 +44,11 @@ Deno.serve(async (req) => {
 
   const supabase = adminClient()
 
+  // Updated as the function moves through the pipeline. It is what turns
+  // "internal_error" into "internal_error at queue_donor_emails", which is the
+  // difference between two days of guessing and one look.
+  let stage = 'start'
+
   try {
     // ---- Rate limit, keyed on a hash the caller never sees ----------------
     // This is the only place the limit can actually be applied: a browser
@@ -52,6 +58,7 @@ Deno.serve(async (req) => {
     // Salted and hashed here rather than in Postgres, so the address itself
     // never reaches the database. Null means no digest could be made (no
     // address, or IP_SALT unset), and the honeypot and timing checks stand.
+    stage = 'rate_limit'
     const ipHash = await hashedCallerIp(req)
     if (ipHash) {
       const { data: allowed } = await supabase.rpc('check_and_record_ip', {
@@ -64,12 +71,14 @@ Deno.serve(async (req) => {
       }
     }
 
+    stage = 'read_settings'
     const settings = await readSettings(supabase)
     const autoEmail = settingBool(settings, 'auto_email_enabled', false)
     const maxEmails = settingInt(settings, 'max_emails_per_request', 25)
     const dailyCap = settingInt(settings, 'daily_email_cap', 400)
 
     // ---- Match. Idempotent, so a retry cannot double-contact anyone -------
+    stage = 'run_matcher'
     const { data: matchRows, error: matchError } = await supabase
       .rpc('run_request_matcher', { in_request_id: requestId })
       .maybeSingle()
@@ -102,6 +111,7 @@ Deno.serve(async (req) => {
     }
 
     // ---- Respect the daily cap before writing anything --------------------
+    stage = 'check_quota'
     const { data: remainingRows } = await supabase.rpc('email_quota_remaining')
     const remaining = typeof remainingRows === 'number' ? remainingRows : dailyCap
     if (remaining <= 0) {
@@ -117,6 +127,7 @@ Deno.serve(async (req) => {
     const budget = Math.min(maxEmails, remaining)
 
     // ---- Render and queue -------------------------------------------------
+    stage = 'load_recipients'
     const { data: pending, error: pendingError } = await supabase.rpc('pending_donor_emails', {
       in_request_id: requestId,
       in_limit: budget,
@@ -172,12 +183,16 @@ Deno.serve(async (req) => {
       }
     })
 
+    stage = 'queue_donor_emails'
     let queued = 0
     if (queue.length > 0) {
-      // The unique index on (recipient_id, kind) makes this safe to retry.
+      // Arbitrated on email_queue.dedupe_key, a generated column with a plain
+      // unique index. The two partial indexes this used to name could never
+      // arbitrate anything: PostgREST emits ON CONFLICT with no WHERE clause,
+      // and Postgres will not match that to a partial index. See migration 0021.
       const { error: insertError, count } = await supabase
         .from('email_queue')
-        .upsert(queue, { onConflict: 'recipient_id,kind', ignoreDuplicates: true, count: 'exact' })
+        .upsert(queue, { onConflict: 'dedupe_key', ignoreDuplicates: true, count: 'exact' })
       if (insertError) throw insertError
       queued = count ?? queue.length
     }
@@ -199,7 +214,8 @@ Deno.serve(async (req) => {
         hospitalName: request.hospital_name_free_text,
       })
 
-      await supabase.from('email_queue').upsert(
+      stage = 'queue_requester_confirmation'
+      const { error: confirmError } = await supabase.from('email_queue').upsert(
         [
           {
             to_email: request.requester_email,
@@ -211,8 +227,12 @@ Deno.serve(async (req) => {
             kind: 'requester_confirmation',
           },
         ],
-        { onConflict: 'request_id,kind', ignoreDuplicates: true },
+        { onConflict: 'dedupe_key', ignoreDuplicates: true },
       )
+      // Logged rather than thrown: the donors are already queued and that is
+      // the part that saves a life. But it is no longer silent — this upsert
+      // had the same broken arbiter and nobody would have known.
+      if (confirmError) console.error('requester confirmation not queued', confirmError)
     }
 
     return json({
@@ -224,9 +244,15 @@ Deno.serve(async (req) => {
       whole_district: match.widened,
     })
   } catch (err) {
-    console.error('send-request-emails failed', err)
+    console.error(`send-request-emails failed at ${stage}`, err)
     // The request row still exists and the recipients are still recorded, so
     // an admin can send from the panel. Never lose a request over this.
-    return json({ error: 'internal_error' }, 500)
+    //
+    // The reason comes back with it now. `{"error":"internal_error"}` on the
+    // one path that needed debugging is the same self-reporting failure as the
+    // matcher's fake zero: the answer was in the logs, visible only to someone
+    // who knew to open the Supabase dashboard. errorPayload keeps `details`
+    // out, because that is the field Postgres fills with row values.
+    return json(errorPayload(err, stage), 500)
   }
 })

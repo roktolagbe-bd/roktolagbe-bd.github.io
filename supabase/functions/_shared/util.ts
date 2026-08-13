@@ -206,3 +206,33 @@ async function constantTimeEquals(a: string, b: string): Promise<boolean> {
   for (let i = 0; i < x.length; i++) diff |= (x[i] ?? 0) ^ (y[i] ?? 0)
   return diff === 0
 }
+
+/**
+ * A Postgres error, in a shape that is safe to send back to the caller.
+ *
+ * `{"error":"internal_error"}` cost two days of debugging on the one path that
+ * needed debugging. The real cause — 42P10, no usable ON CONFLICT arbiter —
+ * was sitting in the function logs the whole time, visible only to somebody
+ * who knew to look in the Supabase dashboard.
+ *
+ * So the code, the message and the hint come back. They describe the SCHEMA,
+ * and this schema is open source; there is nothing in them an attacker cannot
+ * read in the repository.
+ *
+ * `details` is deliberately dropped. That is the one field Postgres fills with
+ * row VALUES — "Key (phone)=(8801...) already exists" — and a donor's phone
+ * number must not leave the database in an error string any more than it may
+ * in a response body.
+ */
+export function errorPayload(err: unknown, stage: string): Record<string, unknown> {
+  const e = err as { code?: string; message?: string; hint?: string } | null
+
+  return {
+    error: 'internal_error',
+    // Where in the pipeline it broke, so the next report starts further along.
+    stage,
+    code: e?.code ?? null,
+    message: e?.message ?? (err instanceof Error ? err.message : String(err)),
+    hint: e?.hint ?? null,
+  }
+}

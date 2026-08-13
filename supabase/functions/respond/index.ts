@@ -108,7 +108,7 @@ Deno.serve(async (req) => {
                 kind: 'requester_acceptance',
               },
             ],
-            { onConflict: 'recipient_id,kind', ignoreDuplicates: true },
+            { onConflict: 'dedupe_key', ignoreDuplicates: true },
           )
         }
       }
@@ -127,6 +127,6 @@ Deno.serve(async (req) => {
     })
   } catch (err) {
     console.error('respond failed', err)
-    return json({ error: 'internal_error' }, 500)
+    return json(errorPayload(err, 'respond'), 500)
   }
 })

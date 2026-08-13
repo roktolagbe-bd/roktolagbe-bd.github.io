@@ -1,6 +1,7 @@
 import { SMTPClient } from 'https://deno.land/x/denomailer@1.6.0/mod.ts'
 import {
   adminClient,
+  errorPayload,
   drainSecretCheck,
   json,
   preflight,
@@ -201,7 +202,7 @@ Deno.serve(async (req) => {
     return json({ ok: true, sent, failed, expired, considered: rows.length, remaining_before: remaining })
   } catch (err) {
     console.error('drain-email-queue failed', err)
-    return json({ error: 'internal_error' }, 500)
+    return json(errorPayload(err, 'drain-email-queue'), 500)
   }
 })
 

@@ -171,6 +171,21 @@ export async function submitRequest(form: RequestForm): Promise<RequestResult> {
     }
   }
 
+  // Everything below this point means the Edge Function did not deliver. Say
+  // which kind of failure it was, because they need different fixes and both
+  // used to look like "no one found":
+  //   network  -> the request never reached Supabase, so nothing is in its logs
+  //   error    -> it ran and failed, and `detail` now carries the reason
+  if (!viaFunction.ok) {
+    console.error(
+      `send-request-emails did not deliver (${viaFunction.reason}${viaFunction.status ? ` ${viaFunction.status}` : ''}).`,
+      viaFunction.detail ?? '',
+      viaFunction.reason === 'network'
+        ? 'Nothing will appear in the Supabase function logs, because the call never arrived. Check the URL, CORS and the anon key.'
+        : 'The Supabase function logs will have the matching entry.',
+    )
+  }
+
   if (viaFunction.ok === false && viaFunction.status === 429) {
     // The request row exists but the caller is over the cap. Say so honestly
     // rather than reporting a match that never ran.

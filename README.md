@@ -334,13 +334,42 @@ resets the current hour's counters.
 
 ### 3g. Check that Bangla actually renders
 
-Sending is not the same as arriving readable. A mail header is US-ASCII by
-definition, so a Bangla sender name has to be RFC 2047 encoded; when it was
-not, Gmail treated the header block as finished at the first non-ASCII byte
-and showed `From`, `To`, `Date`, `MIME-Version` and `Content-Type` as body
-text, with the subject displayed as literal `=?utf-8?Q?...`.
+Sending is not the same as arriving readable. This took three separate fixes,
+and each one was accepted by Gmail, passed SPF, DKIM and DMARC, and arrived
+unreadable:
 
-There is no way to know it is right except to look in a real inbox, so:
+1. **Raw Bangla bytes in the `From` header.** A mail header is US-ASCII by
+   definition (RFC 5322), so Gmail treated the header block as finished at the
+   first non-ASCII byte. `From`, `To`, `Date`, `MIME-Version` and
+   `Content-Type` all came out as body text, and the subject — which *was*
+   encoded correctly — was shown as literal `=?utf-8?Q?...` because by then it
+   was no longer in a header position.
+2. **The `From` header encoded twice.** Encoding it before handing it to the
+   mail library meant the library encoded the result again, and it arrived as
+   `=?utf-8?Q?=3d?utf-8?B?...=3d=3d?=3d?=`.
+3. **A long Bangla subject folded into a blank line.** The library split the
+   encoded subject across lines and left one of them empty. A blank line is
+   exactly how RFC 5322 says the header block ends, so fault 1 came straight
+   back through a different door.
+
+Fault 3 is not something a caller can work around, so the mail library is gone.
+`supabase/functions/_shared/mime.ts` builds the whole message and
+`_shared/smtp.ts` writes it to the socket unchanged. Both are small, both are
+commented, and neither lets anything else encode a header.
+
+Before deploying anything that touches them:
+
+```bash
+npm run test:mail
+```
+
+That builds real messages, reads them back with **mailparser** — a parser that
+had no part in writing them — and then has a real SMTP conversation with a
+local server that answers the way Gmail does, checking what it received. It
+covers all three faults above by name. Reading the generated string proves
+nothing; that is how all three shipped.
+
+Then look in a real inbox, because that is the only thing that counts:
 
 ```bash
 curl -X POST "https://YOUR_PROJECT_REF.supabase.co/functions/v1/drain-email-queue" \
@@ -356,8 +385,11 @@ One bilingual message, sent immediately, bypassing the queue. In the inbox:
 - `From`, `To` and `Date` should be headers, not text inside the message
 - the conjuncts ক্ত ক্ষ ঙ্গ জ্ঞ should be single glyphs, not broken apart
 
-The response echoes the `From` header it sent, so you can compare it with what
-the inbox shows without opening message source.
+The response echoes `sent_as`, which is whatever `GMAIL_USER` currently holds.
+Worth checking: that secret lives in the Supabase dashboard, not in this
+repository, so correcting the address here does not change it. If the inbox
+shows `roktolagbe.bd@gmail.com` with a dot, the secret is the dotted version —
+Gmail ignores dots so delivery is unaffected, but every recipient reads it.
 
 ### How to test it safely
 
@@ -370,7 +402,7 @@ the inbox shows without opening message source.
 
 ```bash
 curl -X POST "https://YOUR_PROJECT_REF.supabase.co/functions/v1/drain-email-queue" \
-  -H "Authorization: Bearer YOUR_SERVICE_ROLE_KEY"
+  -H "x-drain-secret: YOUR_DRAIN_SECRET"
 ```
 
 You should get the email, and the Accept button should work without logging in.

@@ -237,78 +237,22 @@ export function errorPayload(err: unknown, stage: string): Record<string, unknow
   }
 }
 
-/**
- * A display name that is safe to put in a mail header.
+/*
+ * encodeHeaderWord() and fromHeader() used to live here, and they were the
+ * wrong answer to the right problem.
  *
- * The From header was built as `${senderName} <${address}>` with senderName
- * defaulting to রক্ত লাগবে, and those raw UTF-8 bytes went straight into the
- * header block. A mail header is defined as US-ASCII (RFC 5322); anything else
- * has to be an RFC 2047 encoded-word. Gmail responded by treating the header
- * block as finished at that point, so From, To, Date, MIME-Version and
- * Content-Type all appeared as body text, and the Subject — which the mailer
- * HAD encoded correctly — was shown as literal =?utf-8?Q?... because by then
- * it was no longer in a header position.
+ * The problem was real: a mail header is US-ASCII by definition (RFC 5322), so
+ * the raw Bangla bytes that went into `${senderName} <${address}>` ended the
+ * header block where they appeared, and From, To, Date, MIME-Version and
+ * Content-Type all came out as body text.
  *
- * Base64 rather than quoted-printable: in Bangla nearly every byte needs
- * escaping, so Q-encoding runs about three times longer and hits the 75
- * character limit constantly.
+ * The answer was wrong because the mail library also encodes the From header.
+ * A correctly encoded word passed to it was encoded a second time and arrived
+ * as =?utf-8?Q?=3d?utf-8?B?...=3d=3d?=3d?=. Encoding harder cannot fix a
+ * library that mis-handles what it is given: the saved .eml also showed it
+ * folding a long Subject into a BLANK LINE, which is precisely how RFC 5322
+ * says the header block ends.
  *
- * Pure ASCII passes through untouched, so an English sender name produces
- * exactly the header it did before.
+ * So the whole header block is now built in _shared/mime.ts and written to the
+ * socket by _shared/smtp.ts, and nothing encodes a header anywhere else.
  */
-export function encodeHeaderWord(text: string): string {
-  // CR and LF in a header value are how header injection works, and a stray
-  // one is also a second way to end the header block early. Never pass them on.
-  const clean = text.replace(/[\r\n]+/g, ' ').trim()
-  if (!clean) return ''
-
-  // eslint-disable-next-line no-control-regex
-  if (!/[^\x00-\x7F]/.test(clean)) return clean
-
-  // RFC 2047: an encoded-word must be at most 75 characters INCLUDING the
-  // =?utf-8?B?...?= wrapper, and a multi-byte character may never be split
-  // across two of them. So chunk by encoded length, testing whole characters.
-  const PREFIX = '=?utf-8?B?'
-  const SUFFIX = '?='
-  const budget = 75 - PREFIX.length - SUFFIX.length
-
-  const encoder = new TextEncoder()
-  const words: string[] = []
-  let chunk = ''
-
-  for (const char of clean) {
-    const candidate = chunk + char
-    // 4 base64 characters per 3 bytes, rounded up.
-    const encodedLength = Math.ceil(encoder.encode(candidate).length / 3) * 4
-    if (encodedLength > budget && chunk) {
-      words.push(PREFIX + base64(chunk) + SUFFIX)
-      chunk = char
-    } else {
-      chunk = candidate
-    }
-  }
-  if (chunk) words.push(PREFIX + base64(chunk) + SUFFIX)
-
-  // Encoded-words are joined by whitespace, which a decoder removes between
-  // two of them.
-  return words.join(' ')
-}
-
-function base64(text: string): string {
-  const bytes = new TextEncoder().encode(text)
-  let binary = ''
-  for (const byte of bytes) binary += String.fromCharCode(byte)
-  return btoa(binary)
-}
-
-/**
- * The complete From value: an encoded display name and a bare address.
- *
- * The address itself is never encoded — an addr-spec must stay ASCII, and if
- * it is not, no encoding will save it.
- */
-export function fromHeader(displayName: string, address: string): string {
-  const name = encodeHeaderWord(displayName)
-  const clean = address.replace(/[\r\n<>]/g, '').trim()
-  return name ? `${name} <${clean}>` : clean
-}
